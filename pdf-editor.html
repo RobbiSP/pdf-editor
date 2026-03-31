@@ -62,9 +62,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .ann-sel{background:#0f0f1a;border:1px solid #444;color:#d4d4d8;padding:4px 8px;border-radius:4px;font-size:13px}
 #ann-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;justify-content:center;padding:20px}
 #ann-canvas-wrap{position:relative;flex-shrink:0}
-#ann-canvas{display:block;cursor:crosshair}
+#ann-canvas{display:block}
+#ann-draw-canvas{position:absolute;top:0;left:0;cursor:crosshair}
 .ann-marker{position:absolute;cursor:pointer;background:rgba(76,110,245,.15);border:1px solid #4c6ef5;border-radius:2px;padding:1px 5px;font-size:11px;color:#93c5fd;white-space:nowrap;pointer-events:all}
 .ann-marker:hover{background:rgba(248,113,113,.2);border-color:#f87171}
+/* Ann tool buttons */
+.ann-tool-btn{padding:5px 10px;border-radius:5px;border:1px solid #555;background:#2a2a3e;color:#d4d4d8;cursor:pointer;font-size:12px}
+.ann-tool-btn.active{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
+.color-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0}
+.color-swatch.active{border-color:#fff}
+.opacity-row{display:flex;align-items:center;gap:4px;font-size:12px;color:#999}
+.opacity-row input[type=range]{width:70px;accent-color:#4c6ef5}
 /* Form Designer */
 #panel-form{flex-direction:column}
 #form-toolbar{padding:8px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-shrink:0}
@@ -88,6 +96,20 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .prop-input:focus{outline:none;border-color:#4c6ef5}
 .prop-row{display:flex;gap:6px}
 .prop-row .prop-input{width:50%}
+/* Split Panel */
+#panel-split{flex-direction:column}
+#split-header{padding:10px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;font-size:13px;flex-shrink:0}
+#split-body{flex:1;overflow-y:auto;padding:24px;max-width:640px}
+#split-body h2{font-size:16px;margin-bottom:6px}
+#split-body .hint{font-size:13px;color:#888;margin-bottom:20px}
+#split-segments{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+.split-seg{display:flex;align-items:center;gap:8px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:10px 14px;font-size:13px}
+.split-seg input{width:60px;background:#0f0f1a;border:1px solid #444;border-radius:4px;padding:4px 8px;color:#d4d4d8;font-size:13px;text-align:center}
+.split-seg input:focus{outline:none;border-color:#4c6ef5}
+.split-seg .seg-label{color:#888;margin-right:4px}
+.split-seg-remove{background:none;border:none;color:#f87171;cursor:pointer;font-size:16px;margin-left:auto;padding:0 4px}
+.split-remaining{background:#1a1a2e;border:1px dashed #555;border-radius:8px;padding:10px 14px;font-size:13px;color:#888;margin-bottom:16px}
+.split-remaining strong{color:#a78bfa}
 /* Modal */
 #modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
 #modal-bg.open{display:flex}
@@ -112,16 +134,16 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
   <div class="dropdown" id="dd-load">
     <button class="btn primary" onclick="toggleDD('dd-load')">📂 載入 ▾</button>
     <div class="dd-menu" id="dd-load-menu">
-      <div class="dd-item" onclick="openFilePicker();closeDD()">選擇 PDF 檔案</div>
+      <div class="dd-item" onclick="openFilePicker();closeDD()">選擇檔案（PDF / Word / 圖片）</div>
       <div class="dd-item" onclick="openFolderPicker();closeDD()">選擇資料夾（批次）</div>
     </div>
   </div>
   <button class="btn" id="btn-pages" onclick="setMode('pages')" disabled>頁面管理</button>
   <button class="btn" id="btn-merge" onclick="setMode('merge')" disabled>合併</button>
-  <button class="btn" id="btn-annotate" onclick="setMode('annotate')" disabled>文字標注</button>
+  <button class="btn" id="btn-annotate" onclick="setMode('annotate')" disabled>標示標色</button>
   <button class="btn" id="btn-form" onclick="setMode('form')" disabled>表單設計</button>
   <div class="sep"></div>
-  <button class="btn" id="btn-split" onclick="doSplit()" disabled>分割選取頁</button>
+  <button class="btn" id="btn-split" onclick="setMode('split')" disabled>拆分 PDF</button>
   <div class="sep"></div>
   <div class="dropdown" id="dd-out">
     <button class="btn" id="btn-out" onclick="toggleDD('dd-out')" disabled>💾 輸出 ▾</button>
@@ -138,7 +160,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
   <div class="panel active" id="panel-home">
     <div id="drop-zone">
       <h2>拖曳檔案到此處</h2>
-      <p>支援 PDF 及 Word (.docx)，可同時拖入多個</p>
+      <p>支援 PDF、Word (.docx)、圖片 (.jpg/.png)<br>可同時拖入多個檔案</p>
       <div class="drop-btns">
         <button class="btn primary" onclick="openFilePicker()">選擇檔案</button>
         <button class="btn" onclick="openFolderPicker()">選擇資料夾</button>
@@ -173,20 +195,59 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
   <!-- Annotate -->
   <div class="panel" id="panel-annotate">
     <div id="ann-toolbar">
+      <!-- Page selector -->
       <label style="font-size:13px">頁面：</label>
       <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value)"></select>
       <div class="sep"></div>
-      <label style="font-size:13px">文字：</label>
-      <input id="ann-text" type="text" placeholder="輸入文字後點擊頁面" class="ann-sel" style="width:180px">
-      <label style="font-size:13px">大小：</label>
-      <input id="ann-size" type="number" value="12" min="6" max="72" class="ann-sel" style="width:60px">
-      <label style="font-size:13px">顏色：</label>
-      <input id="ann-color" type="color" value="#000000" style="width:36px;height:30px;border:none;background:none;cursor:pointer">
-      <span style="font-size:12px;color:#666">點擊頁面放置 | 點擊標記刪除</span>
+
+      <!-- Tool selector -->
+      <label style="font-size:12px;color:#888">工具：</label>
+      <button class="ann-tool-btn active" id="ann-tool-text" onclick="setAnnTool('text')">文字</button>
+      <button class="ann-tool-btn" id="ann-tool-pen" onclick="setAnnTool('pen')">簽字筆</button>
+      <button class="ann-tool-btn" id="ann-tool-marker" onclick="setAnnTool('marker')">螢光筆</button>
+      <button class="ann-tool-btn" id="ann-tool-rect" onclick="setAnnTool('rect')">矩形</button>
+      <button class="ann-tool-btn" id="ann-tool-ellipse" onclick="setAnnTool('ellipse')">橢圓</button>
+      <div class="sep"></div>
+
+      <!-- Color swatches -->
+      <label style="font-size:12px;color:#888">顏色：</label>
+      <div id="ann-colors" style="display:flex;gap:4px">
+        <div class="color-swatch active" style="background:#000000" data-color="#000000" onclick="setAnnColor(this)" title="黑"></div>
+        <div class="color-swatch" style="background:#ffffff;border-color:#666" data-color="#ffffff" onclick="setAnnColor(this)" title="白"></div>
+        <div class="color-swatch" style="background:#e03131" data-color="#e03131" onclick="setAnnColor(this)" title="紅"></div>
+        <div class="color-swatch" style="background:#1971c2" data-color="#1971c2" onclick="setAnnColor(this)" title="藍"></div>
+        <div class="color-swatch" style="background:#2f9e44" data-color="#2f9e44" onclick="setAnnColor(this)" title="綠"></div>
+        <div class="color-swatch" style="background:#f59f00" data-color="#f59f00" onclick="setAnnColor(this)" title="黃"></div>
+      </div>
+      <div class="sep"></div>
+
+      <!-- Opacity controls -->
+      <div class="opacity-row">
+        <span>外框：</span>
+        <input type="range" id="ann-stroke-opacity" min="0" max="100" value="100" oninput="S.an.strokeOpacity=+this.value;document.getElementById('ann-stroke-val').textContent=this.value+'%'">
+        <span id="ann-stroke-val">100%</span>
+      </div>
+      <div class="opacity-row" id="fill-opacity-row">
+        <span>底色：</span>
+        <input type="range" id="ann-fill-opacity" min="0" max="100" value="0" oninput="S.an.fillOpacity=+this.value;document.getElementById('ann-fill-val').textContent=this.value+'%'">
+        <span id="ann-fill-val">0%</span>
+      </div>
+      <div class="sep"></div>
+
+      <!-- Text-specific controls -->
+      <div id="ann-text-controls" style="display:flex;gap:6px;align-items:center">
+        <label style="font-size:13px">文字：</label>
+        <input id="ann-text" type="text" placeholder="輸入文字後點擊頁面" class="ann-sel" style="width:160px">
+        <label style="font-size:13px">大小：</label>
+        <input id="ann-size" type="number" value="12" min="6" max="72" class="ann-sel" style="width:55px">
+      </div>
+
+      <span id="ann-hint" style="font-size:12px;color:#666">點擊頁面放置 | 點擊標記刪除</span>
     </div>
     <div id="ann-canvas-area">
       <div id="ann-canvas-wrap">
         <canvas id="ann-canvas"></canvas>
+        <canvas id="ann-draw-canvas"></canvas>
       </div>
     </div>
   </div>
@@ -244,6 +305,21 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
       </div>
     </div>
   </div>
+
+  <!-- Split Panel -->
+  <div class="panel" id="panel-split">
+    <div id="split-body">
+      <h2>拆分 PDF</h2>
+      <p class="hint">設定每份 PDF 的頁碼範圍，未涵蓋的頁面會自動合併為最後一份。</p>
+      <div id="split-segments"></div>
+      <div id="split-remaining" class="split-remaining"></div>
+      <div style="display:flex;gap:10px;margin-bottom:20px">
+        <button class="btn" onclick="addSplitSegment()">＋ 新增區段</button>
+        <button class="btn primary" onclick="doSplitRanges()">執行拆分並輸出</button>
+      </div>
+      <p style="font-size:12px;color:#555">頁碼以「頁面管理」中目前的排列順序為準。</p>
+    </div>
+  </div>
 </div>
 
 <!-- Modal -->
@@ -278,12 +354,22 @@ const uid = () => 's' + (++_uid);
 const S = {
   files: [],   // { id, name, ab, pageCount, pjs, pld }
   pages: [],   // { id, fid, pidx, rot, sel }
-  annots: {},  // pageId -> [{x,y,text,size,color}]  PDF coords
+  annots: {},  // pageId -> [{type, ...}]  PDF coords
   fields: {},  // pageId -> [{id,x,y,w,h,code,label}]  PDF coords
   mode: 'home',
   fd: { pidx: 0, pid: null, scale: 1.5, selId: null, drawMode: false,
         drawing: false, ds: null },
-  an: { pidx: 0, pid: null, scale: 1.5 },
+  an: {
+    pidx: 0, pid: null, scale: 1.5,
+    tool: 'text',          // 'text'|'pen'|'marker'|'rect'|'ellipse'
+    color: '#000000',
+    strokeOpacity: 100,    // 0–100
+    fillOpacity: 0,        // 0–100 (rect/ellipse only)
+    drawing: false,
+    drawStart: null,       // canvas coords {x,y}
+    currentPoints: [],     // pen/marker in-progress canvas coords
+  },
+  split: { segments: [] },
   hasFS: typeof window.showOpenFilePicker === 'function',
 };
 
@@ -308,10 +394,8 @@ const S = {
   document.body.addEventListener('drop', e => {
     e.preventDefault();
     document.getElementById('drop-zone').classList.remove('drag-over');
-    const pdfs = [...e.dataTransfer.files].filter(f =>
-      f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf') ||
-      f.name.toLowerCase().endsWith('.docx'));
-    if (pdfs.length) processFiles(pdfs);
+    const files = [...e.dataTransfer.files].filter(f => isSupported(f));
+    if (files.length) processFiles(files);
   });
 
   // Close dropdowns on outside click
@@ -319,10 +403,14 @@ const S = {
     if (!e.target.closest('.dropdown')) closeDD();
   });
 
-  // Annotate canvas click
-  document.getElementById('ann-canvas').addEventListener('click', onAnnClick);
+  // Annotate draw canvas events
+  const dc = document.getElementById('ann-draw-canvas');
+  dc.addEventListener('mousedown', onDrawStart);
+  dc.addEventListener('click', onDrawClick);
+  document.addEventListener('mousemove', onDrawMove);
+  document.addEventListener('mouseup', onDrawEnd);
 
-  // Form overlay events (attached once)
+  // Form overlay events
   const ov = document.getElementById('form-overlay');
   ov.addEventListener('mousedown', onOvDown);
   document.addEventListener('mousemove', onOvMove);
@@ -340,22 +428,32 @@ const S = {
   });
 })();
 
+function isSupported(f) {
+  const n = f.name.toLowerCase();
+  return f.type === 'application/pdf' || n.endsWith('.pdf') ||
+         n.endsWith('.docx') || n.endsWith('.jpg') ||
+         n.endsWith('.jpeg') || n.endsWith('.png');
+}
+
 // ── File Loading ───────────────────────────────────────────
 async function openFilePicker() {
   if (S.hasFS) {
     try {
       const handles = await window.showOpenFilePicker({
         multiple: true,
-        types: [{ description: 'PDF / Word Files', accept: {
+        types: [{ description: 'PDF / Word / 圖片', accept: {
           'application/pdf': ['.pdf'],
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+          'image/jpeg': ['.jpg', '.jpeg'],
+          'image/png': ['.png']
         }}]
       });
       processFiles(await Promise.all(handles.map(h => h.getFile())));
     } catch (e) { if (e.name !== 'AbortError') toast('開啟失敗：' + e.message); }
   } else {
     const inp = document.createElement('input');
-    inp.type = 'file'; inp.multiple = true; inp.accept = '.pdf,application/pdf,.docx';
+    inp.type = 'file'; inp.multiple = true;
+    inp.accept = '.pdf,application/pdf,.docx,.jpg,.jpeg,.png';
     inp.onchange = () => processFiles([...inp.files]);
     inp.click();
   }
@@ -367,17 +465,17 @@ async function openFolderPicker() {
       const dir = await window.showDirectoryPicker();
       const files = [];
       for await (const e of dir.values())
-        if (e.kind === 'file' && (e.name.toLowerCase().endsWith('.pdf') || e.name.toLowerCase().endsWith('.docx')))
+        if (e.kind === 'file' && isSupported(await e.getFile()))
           files.push(await e.getFile());
       if (files.length) processFiles(files);
-      else toast('資料夾中找不到 PDF 或 Word 檔案');
+      else toast('資料夾中找不到支援的檔案');
     } catch (e) { if (e.name !== 'AbortError') toast('開啟資料夾失敗：' + e.message); }
   } else {
     const inp = document.createElement('input');
     inp.type = 'file'; inp.webkitdirectory = true;
     inp.onchange = () => {
-      const pdfs = [...inp.files].filter(f => f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.docx'));
-      if (pdfs.length) processFiles(pdfs);
+      const files = [...inp.files].filter(f => isSupported(f));
+      if (files.length) processFiles(files);
     };
     inp.click();
   }
@@ -386,40 +484,47 @@ async function openFolderPicker() {
 async function convertWordToPdf(file) {
   const arrayBuffer = await file.arrayBuffer();
   const result = await mammoth.convertToHtml({ arrayBuffer });
-
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;min-height:100px;background:#fff;color:#000;font-family:serif;font-size:12pt;line-height:1.6;padding:60px 72px';
   container.innerHTML = result.value;
   document.body.appendChild(container);
-
   try {
     const { jsPDF } = window.jspdf;
     const pageW = 595.28, pageH = 841.89, margin = 40;
     const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
     const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
     const imgW = pageW - margin * 2;
-    const totalImgH = canvas.height * imgW / canvas.width;
     const availH = pageH - margin * 2;
-    let sourceY = 0;
-    let first = true;
-
+    let sourceY = 0, first = true;
     while (sourceY < canvas.height) {
       const sourceSliceH = Math.min(availH * canvas.width / imgW, canvas.height - sourceY);
       const slice = document.createElement('canvas');
-      slice.width = canvas.width;
-      slice.height = Math.ceil(sourceSliceH);
+      slice.width = canvas.width; slice.height = Math.ceil(sourceSliceH);
       slice.getContext('2d').drawImage(canvas, 0, sourceY, canvas.width, slice.height, 0, 0, canvas.width, slice.height);
-      const sliceImgH = slice.height * imgW / canvas.width;
       if (!first) pdf.addPage();
-      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, sliceImgH);
-      sourceY += slice.height;
-      first = false;
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, slice.height * imgW / canvas.width);
+      sourceY += slice.height; first = false;
     }
-
     return pdf.output('arraybuffer');
-  } finally {
-    document.body.removeChild(container);
+  } finally { document.body.removeChild(container); }
+}
+
+async function convertImageToPdf(file) {
+  const ab = await file.arrayBuffer();
+  const doc = await PDFLib.PDFDocument.create();
+  const isJpeg = /\.(jpg|jpeg)$/i.test(file.name);
+  const img = isJpeg ? await doc.embedJpg(ab) : await doc.embedPng(ab);
+  // Fit to A4 if larger, otherwise use original size
+  const a4W = 595.28, a4H = 841.89;
+  let w = img.width, h = img.height;
+  if (w > a4W || h > a4H) {
+    const ratio = Math.min(a4W / w, a4H / h);
+    w = w * ratio; h = h * ratio;
   }
+  const page = doc.addPage([w, h]);
+  page.drawImage(img, { x: 0, y: 0, width: w, height: h });
+  const bytes = await doc.save();
+  return bytes.buffer;
 }
 
 async function processFiles(files) {
@@ -428,12 +533,18 @@ async function processFiles(files) {
   let added = 0;
   for (const file of files) {
     try {
-      const isDocx = file.name.toLowerCase().endsWith('.docx');
+      const n = file.name.toLowerCase();
+      const isDocx = n.endsWith('.docx');
+      const isImage = n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png');
       let ab, fileName;
       if (isDocx) {
         toast(`轉換 ${file.name} 中…`);
         ab = await convertWordToPdf(file);
         fileName = file.name.replace(/\.docx$/i, '.pdf');
+      } else if (isImage) {
+        toast(`轉換圖片 ${file.name} 中…`);
+        ab = await convertImageToPdf(file);
+        fileName = file.name.replace(/\.(jpg|jpeg|png)$/i, '.pdf');
       } else {
         ab = await file.arrayBuffer();
         fileName = file.name;
@@ -468,17 +579,13 @@ function setMode(m) {
   document.getElementById('panel-' + m).classList.add('active');
   if (m === 'annotate') renderAnnotatePage(S.an.pidx);
   if (m === 'form') renderFormPage(S.fd.pidx);
+  if (m === 'split') initSplitPanel();
 }
 
 function refreshToolbar() {
   const on = S.pages.length > 0;
-  ['btn-pages','btn-merge','btn-annotate','btn-form','btn-out']
+  ['btn-pages','btn-merge','btn-annotate','btn-form','btn-out','btn-split']
     .forEach(id => document.getElementById(id).disabled = !on);
-  refreshSplitBtn();
-}
-
-function refreshSplitBtn() {
-  document.getElementById('btn-split').disabled = !S.pages.some(p => p.sel);
 }
 
 // ── Thumbnails ─────────────────────────────────────────────
@@ -486,16 +593,13 @@ function renderThumbs() {
   const grid = document.getElementById('thumb-grid');
   grid.innerHTML = '';
   document.getElementById('pages-count').textContent = `共 ${S.pages.length} 頁`;
-
   S.pages.forEach((pg, i) => {
     const file = S.files.find(f => f.id === pg.fid);
     const item = document.createElement('div');
     item.className = 'thumb-item' + (pg.sel ? ' selected' : '');
     item.dataset.i = i;
-
     const cv = document.createElement('canvas');
     item.appendChild(cv);
-
     const foot = document.createElement('div');
     foot.className = 'thumb-footer';
     foot.innerHTML = `<span title="${file.name}">${file.name.slice(0,12)} p${pg.pidx+1}</span>
@@ -504,28 +608,22 @@ function renderThumbs() {
         <button class="rot-btn" title="順時針 90°" onclick="rotatePg(${i},90,event)">↻</button>
       </span>`;
     item.appendChild(foot);
-
     const cb = document.createElement('input');
     cb.type = 'checkbox'; cb.className = 'thumb-check'; cb.checked = pg.sel;
     cb.addEventListener('change', ev => {
       ev.stopPropagation();
       pg.sel = cb.checked;
       item.classList.toggle('selected', pg.sel);
-      refreshSplitBtn();
     });
     item.appendChild(cb);
-
     item.addEventListener('click', e => {
       if (e.target === cb || e.target.closest('.thumb-footer')) return;
       pg.sel = !pg.sel; cb.checked = pg.sel;
       item.classList.toggle('selected', pg.sel);
-      refreshSplitBtn();
     });
-
     grid.appendChild(item);
     renderThumbCv(cv, file, pg);
   });
-
   if (window._sortable) _sortable.destroy();
   window._sortable = Sortable.create(grid, {
     animation: 150,
@@ -557,7 +655,6 @@ function selectAll(v) {
     const item = document.querySelector(`[data-i="${i}"]`);
     if (item) { item.classList.toggle('selected', v); item.querySelector('.thumb-check').checked = v; }
   });
-  refreshSplitBtn();
 }
 
 // ── Merge List ─────────────────────────────────────────────
@@ -604,25 +701,160 @@ async function doMerge() {
       const copied = await doc.copyPages(src, idxs);
       copied.forEach(p => doc.addPage(p));
     }
-    await saveOutput(await doc.save(), 'merged.pdf', false);
+    const bytes = await doc.save();
+    // Ask for save location and filename
+    if (S.hasFS && window.showSaveFilePicker) {
+      try {
+        const fh = await window.showSaveFilePicker({
+          suggestedName: 'merged.pdf',
+          types: [{ description: 'PDF 檔案', accept: { 'application/pdf': ['.pdf'] } }]
+        });
+        const w = await fh.createWritable();
+        await w.write(bytes); await w.close();
+        toast('已儲存合併檔案');
+        return;
+      } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    // Fallback: prompt for filename then download
+    const name = prompt('請輸入合併後的檔名：', 'merged.pdf');
+    if (name === null) return;
+    downloadBytes(bytes, name.trim() || 'merged.pdf');
   } catch (e) { toast('合併失敗：' + e.message); }
 }
 
-// ── Split ──────────────────────────────────────────────────
-async function doSplit() {
-  const sel = S.pages.filter(p => p.sel);
-  if (!sel.length) { toast('請先勾選頁面'); return; }
-  toast('分割中…');
+// ── Split (Range-based) ────────────────────────────────────
+function initSplitPanel() {
+  if (!S.split.segments.length) {
+    S.split.segments = [{ from: 1, to: S.pages.length }];
+  }
+  renderSplitUI();
+}
+
+function renderSplitUI() {
+  const total = S.pages.length;
+  const segs = S.split.segments;
+  const container = document.getElementById('split-segments');
+  container.innerHTML = '';
+
+  segs.forEach((seg, i) => {
+    const row = document.createElement('div');
+    row.className = 'split-seg';
+    row.innerHTML = `
+      <span class="seg-label">第 ${i+1} 份：第</span>
+      <input type="number" min="1" max="${total}" value="${seg.from}" id="seg-from-${i}">
+      <span class="seg-label">頁 ～ 第</span>
+      <input type="number" min="1" max="${total}" value="${seg.to}" id="seg-to-${i}">
+      <span class="seg-label">頁</span>
+      <button class="split-seg-remove" onclick="removeSplitSegment(${i})" title="移除">✕</button>`;
+    row.querySelector(`#seg-from-${i}`).addEventListener('change', function() {
+      segs[i].from = Math.max(1, Math.min(+this.value, total));
+      this.value = segs[i].from;
+      updateRemainingDisplay();
+    });
+    row.querySelector(`#seg-to-${i}`).addEventListener('change', function() {
+      segs[i].to = Math.max(1, Math.min(+this.value, total));
+      this.value = segs[i].to;
+      updateRemainingDisplay();
+    });
+    container.appendChild(row);
+  });
+  updateRemainingDisplay();
+}
+
+function updateRemainingDisplay() {
+  const total = S.pages.length;
+  const remaining = getRemainingPages();
+  const el = document.getElementById('split-remaining');
+  if (remaining.length === 0) {
+    el.innerHTML = '<span style="color:#555">（所有頁面已被涵蓋，無剩餘頁面）</span>';
+  } else if (remaining.length === total) {
+    el.innerHTML = `<strong>剩餘（最後一份）：</strong>共 ${total} 頁（第 1 頁 ～ 第 ${total} 頁）`;
+  } else {
+    const first = remaining[0], last = remaining[remaining.length - 1];
+    el.innerHTML = `<strong>剩餘（最後一份）：</strong>共 ${remaining.length} 頁（第 ${first} 頁 ～ 第 ${last} 頁，可能不連續）`;
+  }
+}
+
+function getRemainingPages() {
+  const total = S.pages.length;
+  const covered = new Set();
+  for (const seg of S.split.segments) {
+    const f = Math.max(1, Math.min(seg.from, total));
+    const t = Math.max(1, Math.min(seg.to, total));
+    for (let i = f; i <= t; i++) covered.add(i);
+  }
+  const remaining = [];
+  for (let i = 1; i <= total; i++) {
+    if (!covered.has(i)) remaining.push(i);
+  }
+  return remaining;
+}
+
+function addSplitSegment() {
+  const total = S.pages.length;
+  const remaining = getRemainingPages();
+  if (remaining.length === 0) { toast('所有頁面已被涵蓋，無法新增區段'); return; }
+  S.split.segments.push({ from: remaining[0], to: remaining[remaining.length - 1] });
+  renderSplitUI();
+}
+
+function removeSplitSegment(i) {
+  S.split.segments.splice(i, 1);
+  renderSplitUI();
+}
+
+async function doSplitRanges() {
+  const total = S.pages.length;
+  if (!total) { toast('尚未載入任何頁面'); return; }
+
+  // Build output list: segments + remaining
+  const outputs = [];
+  for (let i = 0; i < S.split.segments.length; i++) {
+    const seg = S.split.segments[i];
+    const f = Math.max(1, Math.min(seg.from, total));
+    const t = Math.max(1, Math.min(seg.to, total));
+    if (f > t) { toast(`區段 ${i+1} 起始頁不能大於結束頁`); return; }
+    const indices = [];
+    for (let p = f; p <= t; p++) indices.push(p - 1); // 0-based
+    outputs.push({ name: `拆分_${i+1}.pdf`, indices });
+  }
+  const remaining = getRemainingPages().map(p => p - 1); // 0-based
+  if (remaining.length) outputs.push({ name: `拆分_剩餘.pdf`, indices: remaining });
+  if (!outputs.length) { toast('沒有需要輸出的頁面'); return; }
+
+  toast(`拆分中，共 ${outputs.length} 份…`);
+
+  // Choose output method
+  let dirHandle = null;
+  if (S.hasFS) {
+    try { dirHandle = await window.showDirectoryPicker(); }
+    catch (e) { if (e.name === 'AbortError') return; }
+  }
+
   try {
-    const doc = await PDFLib.PDFDocument.create();
-    for (const pg of sel) {
-      const file = S.files.find(f => f.id === pg.fid);
-      const [cp] = await doc.copyPages(file.pld, [pg.pidx]);
-      if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
-      doc.addPage(cp);
+    for (const out of outputs) {
+      const doc = await PDFLib.PDFDocument.create();
+      for (const idx of out.indices) {
+        const pg = S.pages[idx];
+        if (!pg) continue;
+        const file = S.files.find(f => f.id === pg.fid);
+        const [cp] = await doc.copyPages(file.pld, [pg.pidx]);
+        if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
+        doc.addPage(cp);
+      }
+      const bytes = await doc.save();
+      if (dirHandle) {
+        const fh = await dirHandle.getFileHandle(out.name, { create: true });
+        const w = await fh.createWritable();
+        await w.write(bytes); await w.close();
+      } else {
+        downloadBytes(bytes, out.name);
+        // Small delay to avoid browser blocking multiple downloads
+        await new Promise(r => setTimeout(r, 400));
+      }
     }
-    await saveOutput(await doc.save(), 'split.pdf', false);
-  } catch (e) { toast('分割失敗：' + e.message); }
+    toast(`已完成拆分，共輸出 ${outputs.length} 份 PDF`);
+  } catch (e) { toast('拆分失敗：' + e.message); }
 }
 
 // ── Annotate ───────────────────────────────────────────────
@@ -643,31 +875,237 @@ function refreshPageSels() {
 
 async function renderAnnotatePage(idx) {
   if (!S.pages[idx]) return;
-  S.an.pidx = idx; const pg = S.pages[idx]; S.an.pid = pg.id;
+  S.an.pidx = idx;
+  const pg = S.pages[idx]; S.an.pid = pg.id;
   const file = S.files.find(f => f.id === pg.fid);
   const pjsPage = await file.pjs.getPage(pg.pidx + 1);
   const vp = pjsPage.getViewport({ scale: S.an.scale, rotation: pg.rot });
   const cv = document.getElementById('ann-canvas');
   cv.width = vp.width; cv.height = vp.height;
   await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  // Sync draw canvas size
+  const dc = document.getElementById('ann-draw-canvas');
+  dc.width = vp.width; dc.height = vp.height;
+  renderAnnOverlay();
   renderAnnMarkers();
 }
 
-function onAnnClick(e) {
+// Set annotation tool
+function setAnnTool(tool) {
+  S.an.tool = tool;
+  ['text','pen','marker','rect','ellipse'].forEach(t => {
+    document.getElementById('ann-tool-' + t).classList.toggle('active', t === tool);
+  });
+  // Show/hide fill opacity for rect/ellipse
+  const hasArea = tool === 'rect' || tool === 'ellipse';
+  document.getElementById('fill-opacity-row').style.display = hasArea ? '' : 'none';
+  // Show/hide text controls
+  document.getElementById('ann-text-controls').style.display = tool === 'text' ? '' : 'none';
+  // Update hint
+  const hints = {
+    text: '點擊頁面放置 | 點擊標記刪除',
+    pen: '按住滑鼠拖曳繪製',
+    marker: '按住滑鼠拖曳塗抹',
+    rect: '拖曳畫出矩形',
+    ellipse: '拖曳畫出橢圓'
+  };
+  document.getElementById('ann-hint').textContent = hints[tool];
+}
+
+// Set annotation color
+function setAnnColor(el) {
+  S.an.color = el.dataset.color;
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Draw canvas mouse events
+function dcPos(e) {
+  const dc = document.getElementById('ann-draw-canvas');
+  const r = dc.getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function onDrawClick(e) {
+  if (S.an.tool !== 'text') return;
   const text = document.getElementById('ann-text').value.trim();
   if (!text) { toast('請先輸入文字'); return; }
-  const rect = e.target.getBoundingClientRect();
-  const hx = e.clientX - rect.left, hy = e.clientY - rect.top;
+  const p = dcPos(e);
   const cv = document.getElementById('ann-canvas');
   S.annots[S.an.pid].push({
-    x: hx / S.an.scale,
-    y: (cv.height - hy) / S.an.scale,
+    type: 'text',
+    x: p.x / S.an.scale,
+    y: (cv.height - p.y) / S.an.scale,
     text,
     size: +document.getElementById('ann-size').value || 12,
-    color: document.getElementById('ann-color').value
+    color: S.an.color
   });
   renderAnnMarkers();
   toast('文字已放置');
+}
+
+function onDrawStart(e) {
+  if (S.an.tool === 'text') return;
+  if (e.button !== 0) return;
+  S.an.drawing = true;
+  const p = dcPos(e);
+  S.an.drawStart = p;
+  S.an.currentPoints = [p];
+}
+
+function onDrawMove(e) {
+  if (!S.an.drawing || S.an.tool === 'text') return;
+  const p = dcPos(e);
+  if (S.an.tool === 'pen' || S.an.tool === 'marker') {
+    S.an.currentPoints.push(p);
+  }
+  // Redraw overlay with in-progress shape
+  renderAnnOverlay(true);
+}
+
+function onDrawEnd(e) {
+  if (!S.an.drawing || S.an.tool === 'text') return;
+  S.an.drawing = false;
+  const p = dcPos(e);
+  const start = S.an.drawStart;
+  const cv = document.getElementById('ann-canvas');
+  const sc = S.an.scale;
+  const cvH = cv.height;
+
+  if (S.an.tool === 'pen' || S.an.tool === 'marker') {
+    const pts = S.an.currentPoints;
+    if (pts.length < 2) { S.an.currentPoints = []; renderAnnOverlay(); return; }
+    // Convert canvas coords → PDF coords
+    const pdfPoints = pts.map(pt => ({
+      x: pt.x / sc,
+      y: (cvH - pt.y) / sc
+    }));
+    S.annots[S.an.pid].push({
+      type: S.an.tool,
+      points: pdfPoints,
+      color: S.an.color,
+      strokeOpacity: S.an.strokeOpacity,
+      width: S.an.tool === 'marker' ? 12 : 2  // pt, pen=2pt, marker=12pt
+    });
+  } else if (S.an.tool === 'rect' || S.an.tool === 'ellipse') {
+    const dx = Math.abs(p.x - start.x), dy = Math.abs(p.y - start.y);
+    if (dx < 5 || dy < 5) { S.an.currentPoints = []; renderAnnOverlay(); return; }
+    const left = Math.min(p.x, start.x), top = Math.min(p.y, start.y);
+    const w = dx, h = dy;
+    if (S.an.tool === 'rect') {
+      S.annots[S.an.pid].push({
+        type: 'rect',
+        x: left / sc,
+        y: (cvH - top - h) / sc,
+        w: w / sc,
+        h: h / sc,
+        color: S.an.color,
+        strokeOpacity: S.an.strokeOpacity,
+        fillOpacity: S.an.fillOpacity
+      });
+    } else {
+      S.annots[S.an.pid].push({
+        type: 'ellipse',
+        cx: (left + w / 2) / sc,
+        cy: (cvH - (top + h / 2)) / sc,
+        rx: w / 2 / sc,
+        ry: h / 2 / sc,
+        color: S.an.color,
+        strokeOpacity: S.an.strokeOpacity,
+        fillOpacity: S.an.fillOpacity
+      });
+    }
+  }
+
+  S.an.currentPoints = [];
+  renderAnnOverlay();
+}
+
+// Render all shape annotations on draw canvas
+function renderAnnOverlay(showInProgress) {
+  const cv = document.getElementById('ann-canvas');
+  const dc = document.getElementById('ann-draw-canvas');
+  if (!dc.width) return;
+  const ctx = dc.getContext('2d');
+  ctx.clearRect(0, 0, dc.width, dc.height);
+  const sc = S.an.scale;
+  const cvH = cv.height;
+
+  for (const a of (S.annots[S.an.pid] || [])) {
+    if (a.type === 'text') continue;
+    drawAnnShape(ctx, a, sc, cvH, false);
+  }
+
+  // In-progress preview
+  if (showInProgress && S.an.drawing) {
+    const t = S.an.tool;
+    const color = S.an.color;
+    const sOp = S.an.strokeOpacity / 100;
+    const fOp = S.an.fillOpacity / 100;
+    ctx.save();
+    if (t === 'pen' || t === 'marker') {
+      const pts = S.an.currentPoints;
+      if (pts.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.strokeStyle = hexToRgba(color, sOp);
+        ctx.lineWidth = t === 'marker' ? 12 * sc : 2 * sc;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+    } else if (t === 'rect' || t === 'ellipse') {
+      const s = S.an.drawStart, pts = S.an.currentPoints;
+      const cur = pts.length ? pts[pts.length - 1] : s;
+      const x = Math.min(s.x, cur.x), y = Math.min(s.y, cur.y);
+      const w = Math.abs(cur.x - s.x), h = Math.abs(cur.y - s.y);
+      if (t === 'rect') {
+        if (fOp > 0) { ctx.fillStyle = hexToRgba(color, fOp); ctx.fillRect(x, y, w, h); }
+        if (sOp > 0) { ctx.strokeStyle = hexToRgba(color, sOp); ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h); }
+      } else {
+        ctx.beginPath();
+        ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2);
+        if (fOp > 0) { ctx.fillStyle = hexToRgba(color, fOp); ctx.fill(); }
+        if (sOp > 0) { ctx.strokeStyle = hexToRgba(color, sOp); ctx.lineWidth = 2; ctx.stroke(); }
+      }
+    }
+    ctx.restore();
+  }
+}
+
+function drawAnnShape(ctx, a, sc, cvH, forExport) {
+  // forExport=false: canvas coords (origin top-left, Y down)
+  ctx.save();
+  const sOp = (a.strokeOpacity ?? 100) / 100;
+  const fOp = (a.fillOpacity ?? 0) / 100;
+  const color = a.color;
+
+  if (a.type === 'pen' || a.type === 'marker') {
+    const pts = a.points;
+    if (!pts || pts.length < 2) { ctx.restore(); return; }
+    ctx.beginPath();
+    // points are in PDF coords; convert to canvas coords
+    ctx.moveTo(pts[0].x * sc, cvH - pts[0].y * sc);
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x * sc, cvH - pts[i].y * sc);
+    ctx.strokeStyle = hexToRgba(color, sOp);
+    ctx.lineWidth = a.width * sc;
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.stroke();
+  } else if (a.type === 'rect') {
+    const sx = a.x * sc;
+    const sy = cvH - (a.y + a.h) * sc;
+    const sw = a.w * sc, sh = a.h * sc;
+    if (fOp > 0) { ctx.fillStyle = hexToRgba(color, fOp); ctx.fillRect(sx, sy, sw, sh); }
+    if (sOp > 0) { ctx.strokeStyle = hexToRgba(color, sOp); ctx.lineWidth = 2; ctx.strokeRect(sx, sy, sw, sh); }
+  } else if (a.type === 'ellipse') {
+    const scx = a.cx * sc, scy = cvH - a.cy * sc;
+    const rx = a.rx * sc, ry = a.ry * sc;
+    ctx.beginPath();
+    ctx.ellipse(scx, scy, rx, ry, 0, 0, Math.PI * 2);
+    if (fOp > 0) { ctx.fillStyle = hexToRgba(color, fOp); ctx.fill(); }
+    if (sOp > 0) { ctx.strokeStyle = hexToRgba(color, sOp); ctx.lineWidth = 2; ctx.stroke(); }
+  }
+  ctx.restore();
 }
 
 function renderAnnMarkers() {
@@ -675,6 +1113,7 @@ function renderAnnMarkers() {
   wrap.querySelectorAll('.ann-marker').forEach(m => m.remove());
   const cv = document.getElementById('ann-canvas');
   (S.annots[S.an.pid] || []).forEach((a, i) => {
+    if (a.type !== 'text') return;
     const div = document.createElement('div');
     div.className = 'ann-marker';
     div.title = '點擊刪除';
@@ -682,7 +1121,9 @@ function renderAnnMarkers() {
     div.style.cssText = `left:${a.x * S.an.scale}px;top:${cv.height - a.y * S.an.scale}px;
       font-size:${Math.round(a.size * S.an.scale * 0.75)}px;color:${a.color}`;
     div.addEventListener('click', () => {
-      S.annots[S.an.pid].splice(i, 1); renderAnnMarkers();
+      S.annots[S.an.pid].splice(i, 1);
+      renderAnnMarkers();
+      renderAnnOverlay();
     });
     wrap.appendChild(div);
   });
@@ -780,24 +1221,20 @@ function renderFieldBoxes() {
     box.className = 'field-box' + (f.id === S.fd.selId ? ' selected' : '');
     box.dataset.fid = f.id;
     box.style.cssText = `left:${hx}px;top:${hy}px;width:${f.w*sc}px;height:${f.h*sc}px`;
-
     const lbl = document.createElement('div');
     lbl.className = 'field-label';
     lbl.textContent = f.code + (f.label !== f.code ? ' ' + f.label : '');
     box.appendChild(lbl);
-
     const rh = document.createElement('div');
     rh.className = 'resize-handle';
     rh.addEventListener('mousedown', e => { e.stopPropagation(); startResize(e, f, box); });
     box.appendChild(rh);
-
     box.addEventListener('mousedown', e => {
       if (S.fd.drawMode || e.target === rh) return;
       e.stopPropagation();
       S.fd.selId = f.id; renderFieldBoxes(); updFieldProps();
       startMove(e, f, box);
     });
-
     ov.appendChild(box);
   });
   renderFieldList();
@@ -895,9 +1332,62 @@ async function doExport(toFolder) {
       if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
       doc.addPage(cp);
       const outPage = doc.getPage(doc.getPageCount() - 1);
+      const pgH = outPage.getHeight();
+      const pgW = outPage.getWidth();
+
+      const annots = S.annots[pg.id] || [];
+
+      // Pen/Marker: render to offscreen canvas → embed as PNG
+      const penAnnots = annots.filter(a => a.type === 'pen' || a.type === 'marker');
+      if (penAnnots.length) {
+        const tmp = document.createElement('canvas');
+        tmp.width = Math.round(pgW); tmp.height = Math.round(pgH);
+        const ctx = tmp.getContext('2d');
+        for (const a of penAnnots) {
+          const pts = a.points;
+          if (!pts || pts.length < 2) continue;
+          ctx.save();
+          ctx.beginPath();
+          // PDF coords: Y up → canvas Y down
+          ctx.moveTo(pts[0].x, pgH - pts[0].y);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pgH - pts[i].y);
+          ctx.strokeStyle = hexToRgba(a.color, (a.strokeOpacity ?? 100) / 100);
+          ctx.lineWidth = a.width;
+          ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+          ctx.stroke();
+          ctx.restore();
+        }
+        const pngBytes = await canvasToPngBytes(tmp);
+        const pngImg = await doc.embedPng(pngBytes);
+        outPage.drawImage(pngImg, { x: 0, y: 0, width: pgW, height: pgH });
+      }
+
+      // Rect
+      for (const a of annots.filter(a => a.type === 'rect')) {
+        const rgb = hexToPdfRgb(a.color);
+        const sOp = (a.strokeOpacity ?? 100) / 100;
+        const fOp = (a.fillOpacity ?? 0) / 100;
+        outPage.drawRectangle({
+          x: a.x, y: a.y, width: a.w, height: a.h,
+          ...(fOp > 0 ? { color: rgb, opacity: fOp } : {}),
+          ...(sOp > 0 ? { borderColor: rgb, borderOpacity: sOp, borderWidth: 2 } : {}),
+        });
+      }
+
+      // Ellipse
+      for (const a of annots.filter(a => a.type === 'ellipse')) {
+        const rgb = hexToPdfRgb(a.color);
+        const sOp = (a.strokeOpacity ?? 100) / 100;
+        const fOp = (a.fillOpacity ?? 0) / 100;
+        outPage.drawEllipse({
+          x: a.cx, y: a.cy, xScale: a.rx, yScale: a.ry,
+          ...(fOp > 0 ? { color: rgb, opacity: fOp } : {}),
+          ...(sOp > 0 ? { borderColor: rgb, borderOpacity: sOp, borderWidth: 2 } : {}),
+        });
+      }
 
       // Text annotations
-      for (const a of (S.annots[pg.id] || [])) {
+      for (const a of annots.filter(a => a.type === 'text')) {
         const hx = a.color.replace('#','');
         outPage.drawText(a.text, {
           x: a.x, y: a.y, size: a.size, font,
@@ -914,7 +1404,6 @@ async function doExport(toFolder) {
           const tf = form.createTextField(f.code);
           tf.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
         } catch (e) {
-          // Duplicate code: append suffix
           try {
             const tf2 = form.createTextField(f.code + '_' + f.id.slice(-3));
             tf2.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
@@ -925,6 +1414,12 @@ async function doExport(toFolder) {
 
     await saveOutput(await doc.save(), 'output.pdf', toFolder);
   } catch (e) { toast('輸出失敗：' + e.message); console.error(e); }
+}
+
+function canvasToPngBytes(canvas) {
+  return new Promise(resolve => {
+    canvas.toBlob(blob => blob.arrayBuffer().then(buf => resolve(new Uint8Array(buf))), 'image/png');
+  });
 }
 
 async function saveOutput(bytes, filename, toFolder) {
@@ -940,15 +1435,29 @@ async function saveOutput(bytes, filename, toFolder) {
       toast('資料夾儲存失敗，改為下載');
     }
   }
+  downloadBytes(bytes, filename);
+  toast('已下載：' + filename);
+}
+
+function downloadBytes(bytes, filename) {
   const blob = new Blob([bytes], { type: 'application/pdf' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
-  toast('已下載：' + filename);
 }
 
 // ── Helpers ────────────────────────────────────────────────
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#','');
+  return `rgba(${parseInt(h.slice(0,2),16)},${parseInt(h.slice(2,4),16)},${parseInt(h.slice(4,6),16)},${alpha})`;
+}
+
+function hexToPdfRgb(hex) {
+  const h = hex.replace('#','');
+  return PDFLib.rgb(parseInt(h.slice(0,2),16)/255, parseInt(h.slice(2,4),16)/255, parseInt(h.slice(4,6),16)/255);
+}
+
 function toggleDD(id) {
   const m = document.getElementById(id + '-menu');
   const isOpen = m.classList.contains('open');
