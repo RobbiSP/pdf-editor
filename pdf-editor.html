@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>PDF 編輯工具</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+<script src="https://unpkg.com/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4d4d8;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
+#toolbar{background:#1e1e2e;border-bottom:1px solid #333;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+.btn{padding:6px 14px;border-radius:6px;border:1px solid #444;background:#2a2a3e;color:#d4d4d8;cursor:pointer;font-size:13px;white-space:nowrap}
+.btn:hover{background:#3a3a5e}.btn.primary{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
+.btn.primary:hover{background:#5c7ef5}.btn.active{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.sep{width:1px;background:#444;height:24px;margin:0 4px}
+.dropdown{position:relative;display:inline-block}
+.dd-menu{display:none;position:absolute;top:100%;left:0;background:#2a2a3e;border:1px solid #444;border-radius:6px;z-index:100;min-width:160px;margin-top:4px}
+.dd-menu.open{display:block}
+.dd-item{padding:8px 14px;cursor:pointer;font-size:13px;white-space:nowrap}
+.dd-item:hover{background:#3a3a5e}
+#fs-badge{font-size:11px;padding:3px 8px;border-radius:10px;margin-left:auto}
+#fs-badge.ok{background:#166534;color:#86efac}#fs-badge.no{background:#7f1d1d;color:#fca5a5}
+#main{flex:1;overflow:hidden;display:flex}
+.panel{display:none;flex:1;overflow:auto}
+.panel.active{display:flex}
+/* Home */
+#panel-home{align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#drop-zone{border:2px dashed #444;border-radius:16px;padding:60px;text-align:center;cursor:pointer;transition:all .2s;max-width:480px}
+#drop-zone:hover,#drop-zone.drag-over{border-color:#4c6ef5;background:rgba(76,110,245,.08)}
+#drop-zone h2{font-size:20px;margin-bottom:8px}
+#drop-zone p{color:#888;font-size:14px}
+.drop-btns{display:flex;gap:10px;margin-top:16px;justify-content:center}
+/* Pages */
+#panel-pages{flex-direction:column}
+#pages-header{padding:10px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;font-size:13px;flex-shrink:0}
+#thumb-grid{flex:1;overflow-y:auto;padding:16px;display:flex;flex-wrap:wrap;gap:12px;align-content:flex-start}
+.thumb-item{position:relative;cursor:pointer;border-radius:8px;border:2px solid transparent;background:#1e1e2e;overflow:hidden;width:140px;flex-shrink:0}
+.thumb-item.selected{border-color:#4c6ef5}
+.thumb-item canvas{display:block;width:100%}
+.thumb-footer{padding:4px 6px;font-size:11px;color:#888;display:flex;justify-content:space-between;align-items:center;background:#1e1e2e}
+.rot-btn{background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 3px}
+.rot-btn:hover{color:#fff}
+.thumb-check{position:absolute;top:4px;left:4px;width:18px;height:18px;accent-color:#4c6ef5;cursor:pointer}
+/* Merge */
+#panel-merge{flex-direction:column;padding:24px;gap:12px;overflow-y:auto}
+#merge-list{list-style:none;display:flex;flex-direction:column;gap:8px;max-width:600px}
+.merge-item{background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:12px 16px;display:flex;align-items:center;gap:12px}
+.drag-handle{cursor:grab;color:#666;font-size:18px;flex-shrink:0}
+.file-info{flex:1}
+.file-name{font-size:14px;font-weight:500}
+.file-pages{font-size:12px;color:#888;margin-top:2px}
+.remove-btn{background:none;border:none;color:#f87171;cursor:pointer;font-size:18px;padding:0 4px}
+/* Annotate */
+#panel-annotate{flex-direction:column}
+#ann-toolbar{padding:8px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
+.ann-sel{background:#0f0f1a;border:1px solid #444;color:#d4d4d8;padding:4px 8px;border-radius:4px;font-size:13px}
+#ann-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+#ann-canvas-wrap{position:relative;flex-shrink:0}
+#ann-canvas{display:block;cursor:crosshair}
+.ann-marker{position:absolute;cursor:pointer;background:rgba(76,110,245,.15);border:1px solid #4c6ef5;border-radius:2px;padding:1px 5px;font-size:11px;color:#93c5fd;white-space:nowrap;pointer-events:all}
+.ann-marker:hover{background:rgba(248,113,113,.2);border-color:#f87171}
+/* Form Designer */
+#panel-form{flex-direction:column}
+#form-toolbar{padding:8px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-shrink:0}
+#form-body{flex:1;display:flex;overflow:hidden}
+#form-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;justify-content:center;padding:20px}
+#form-canvas-wrap{position:relative;flex-shrink:0}
+#form-canvas{display:block}
+#form-overlay{position:absolute;top:0;left:0}
+.field-box{position:absolute;border:2px solid #4c6ef5;background:rgba(76,110,245,.12);border-radius:2px;cursor:move}
+.field-box.selected{border-color:#f59e0b;background:rgba(245,158,11,.15)}
+.field-label{position:absolute;top:-18px;left:0;font-size:10px;background:#4c6ef5;color:#fff;padding:1px 5px;border-radius:2px;white-space:nowrap;pointer-events:none}
+.field-box.selected .field-label{background:#f59e0b}
+.resize-handle{position:absolute;bottom:-4px;right:-4px;width:10px;height:10px;background:#4c6ef5;border-radius:2px;cursor:se-resize}
+.field-box.selected .resize-handle{background:#f59e0b}
+#rubber-band{position:absolute;border:2px dashed #4c6ef5;background:rgba(76,110,245,.1);pointer-events:none;display:none}
+#form-props{width:230px;background:#1e1e2e;border-left:1px solid #333;padding:16px;flex-shrink:0;overflow-y:auto}
+#form-props h3{font-size:12px;margin-bottom:14px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+.prop-group{margin-bottom:12px}
+.prop-lbl{font-size:11px;color:#888;margin-bottom:4px}
+.prop-input{width:100%;background:#0f0f1a;border:1px solid #333;border-radius:4px;padding:6px 8px;color:#d4d4d8;font-size:13px}
+.prop-input:focus{outline:none;border-color:#4c6ef5}
+.prop-row{display:flex;gap:6px}
+.prop-row .prop-input{width:50%}
+/* Modal */
+#modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center}
+#modal-bg.open{display:flex}
+#modal-box{background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:24px;min-width:300px;max-width:400px;width:100%}
+#modal-box h3{margin-bottom:16px;font-size:15px}
+.modal-field{margin-bottom:12px}
+.modal-field label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+.modal-field input{width:100%;background:#0f0f1a;border:1px solid #333;border-radius:4px;padding:8px;color:#d4d4d8;font-size:14px}
+.modal-field input:focus{outline:none;border-color:#4c6ef5}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a2a3e;border:1px solid #555;border-radius:8px;padding:10px 20px;font-size:13px;z-index:300;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+#toast.show{opacity:1}
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <div class="dropdown" id="dd-load">
+    <button class="btn primary" onclick="toggleDD('dd-load')">📂 載入 ▾</button>
+    <div class="dd-menu" id="dd-load-menu">
+      <div class="dd-item" onclick="openFilePicker();closeDD()">選擇 PDF 檔案</div>
+      <div class="dd-item" onclick="openFolderPicker();closeDD()">選擇資料夾（批次）</div>
+    </div>
+  </div>
+  <button class="btn" id="btn-pages" onclick="setMode('pages')" disabled>頁面管理</button>
+  <button class="btn" id="btn-merge" onclick="setMode('merge')" disabled>合併</button>
+  <button class="btn" id="btn-annotate" onclick="setMode('annotate')" disabled>文字標注</button>
+  <button class="btn" id="btn-form" onclick="setMode('form')" disabled>表單設計</button>
+  <div class="sep"></div>
+  <button class="btn" id="btn-split" onclick="doSplit()" disabled>分割選取頁</button>
+  <div class="sep"></div>
+  <div class="dropdown" id="dd-out">
+    <button class="btn" id="btn-out" onclick="toggleDD('dd-out')" disabled>💾 輸出 ▾</button>
+    <div class="dd-menu" id="dd-out-menu">
+      <div class="dd-item" id="item-save-folder" onclick="doExport(true);closeDD()">儲存到資料夾…</div>
+      <div class="dd-item" onclick="doExport(false);closeDD()">下載檔案</div>
+    </div>
+  </div>
+  <span id="fs-badge"></span>
+</div>
+
+<div id="main">
+  <!-- Home -->
+  <div class="panel active" id="panel-home">
+    <div id="drop-zone">
+      <h2>拖曳檔案到此處</h2>
+      <p>支援 PDF 及 Word (.docx)，可同時拖入多個</p>
+      <div class="drop-btns">
+        <button class="btn primary" onclick="openFilePicker()">選擇檔案</button>
+        <button class="btn" onclick="openFolderPicker()">選擇資料夾</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pages -->
+  <div class="panel" id="panel-pages">
+    <div id="pages-header">
+      <span id="pages-count">0 頁</span>
+      <button class="btn" style="padding:3px 10px;font-size:12px" onclick="selectAll(true)">全選</button>
+      <button class="btn" style="padding:3px 10px;font-size:12px" onclick="selectAll(false)">取消全選</button>
+      <span style="font-size:12px;color:#666;margin-left:4px">拖曳縮圖可重新排序</span>
+    </div>
+    <div id="thumb-grid"></div>
+  </div>
+
+  <!-- Merge -->
+  <div class="panel" id="panel-merge">
+    <div>
+      <h2 style="font-size:16px;margin-bottom:8px">合併 PDF</h2>
+      <p style="font-size:13px;color:#888;margin-bottom:16px">拖曳調整合併順序，確認後點「執行合併」</p>
+      <ul id="merge-list"></ul>
+      <div style="margin-top:16px;display:flex;gap:10px">
+        <button class="btn primary" onclick="doMerge()">執行合併並輸出</button>
+        <button class="btn" onclick="openFilePicker()">＋ 新增檔案</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotate -->
+  <div class="panel" id="panel-annotate">
+    <div id="ann-toolbar">
+      <label style="font-size:13px">頁面：</label>
+      <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value)"></select>
+      <div class="sep"></div>
+      <label style="font-size:13px">文字：</label>
+      <input id="ann-text" type="text" placeholder="輸入文字後點擊頁面" class="ann-sel" style="width:180px">
+      <label style="font-size:13px">大小：</label>
+      <input id="ann-size" type="number" value="12" min="6" max="72" class="ann-sel" style="width:60px">
+      <label style="font-size:13px">顏色：</label>
+      <input id="ann-color" type="color" value="#000000" style="width:36px;height:30px;border:none;background:none;cursor:pointer">
+      <span style="font-size:12px;color:#666">點擊頁面放置 | 點擊標記刪除</span>
+    </div>
+    <div id="ann-canvas-area">
+      <div id="ann-canvas-wrap">
+        <canvas id="ann-canvas"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Form Designer -->
+  <div class="panel" id="panel-form">
+    <div id="form-toolbar">
+      <button class="btn" id="btn-draw" onclick="toggleDraw()">＋ 新增欄位</button>
+      <button class="btn" id="btn-del-field" onclick="deleteSelField()" disabled>刪除欄位</button>
+      <div class="sep"></div>
+      <label style="font-size:13px">頁面：</label>
+      <select id="form-page-sel" class="ann-sel" onchange="selectFormPage(+this.value)"></select>
+      <span id="draw-hint" style="font-size:12px;color:#7c3aed;margin-left:8px"></span>
+    </div>
+    <div id="form-body">
+      <div id="form-canvas-area">
+        <div id="form-canvas-wrap">
+          <canvas id="form-canvas"></canvas>
+          <div id="form-overlay"></div>
+          <div id="rubber-band"></div>
+        </div>
+      </div>
+      <div id="form-props">
+        <h3>欄位屬性</h3>
+        <p id="no-sel-msg" style="font-size:13px;color:#555">尚未選取欄位</p>
+        <div id="field-props-panel" style="display:none">
+          <div class="prop-group">
+            <div class="prop-lbl">欄位代碼（程式用）</div>
+            <input class="prop-input" id="prop-code" type="text" placeholder="E1" oninput="updProp('code',this.value)">
+          </div>
+          <div class="prop-group">
+            <div class="prop-lbl">說明標籤（顯示用）</div>
+            <input class="prop-input" id="prop-label" type="text" placeholder="要保人姓名" oninput="updProp('label',this.value)">
+          </div>
+          <div class="prop-group">
+            <div class="prop-lbl">位置 X / Y（pt）</div>
+            <div class="prop-row">
+              <input class="prop-input" id="prop-x" type="number" oninput="updPropN('x',this.value)">
+              <input class="prop-input" id="prop-y" type="number" oninput="updPropN('y',this.value)">
+            </div>
+          </div>
+          <div class="prop-group">
+            <div class="prop-lbl">寬度 / 高度（pt）</div>
+            <div class="prop-row">
+              <input class="prop-input" id="prop-w" type="number" oninput="updPropN('w',this.value)">
+              <input class="prop-input" id="prop-h" type="number" oninput="updPropN('h',this.value)">
+            </div>
+          </div>
+          <button class="btn" style="width:100%;color:#f87171;border-color:#f87171;margin-top:8px" onclick="deleteSelField()">刪除此欄位</button>
+        </div>
+        <div style="margin-top:24px;border-top:1px solid #333;padding-top:12px">
+          <div style="font-size:11px;color:#555;margin-bottom:8px">此頁所有欄位</div>
+          <div id="field-list" style="font-size:12px;display:flex;flex-direction:column;gap:4px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div id="modal-bg">
+  <div id="modal-box">
+    <h3>設定欄位資訊</h3>
+    <div class="modal-field">
+      <label>欄位代碼（後端程式使用）</label>
+      <input id="m-code" type="text" placeholder="例：E1">
+    </div>
+    <div class="modal-field">
+      <label>說明標籤（標示用，可留空）</label>
+      <input id="m-label" type="text" placeholder="例：要保人姓名">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">取消</button>
+      <button class="btn primary" onclick="confirmModal()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+// ── State ──────────────────────────────────────────────────
+let _uid = 0;
+const uid = () => 's' + (++_uid);
+
+const S = {
+  files: [],   // { id, name, ab, pageCount, pjs, pld }
+  pages: [],   // { id, fid, pidx, rot, sel }
+  annots: {},  // pageId -> [{x,y,text,size,color}]  PDF coords
+  fields: {},  // pageId -> [{id,x,y,w,h,code,label}]  PDF coords
+  mode: 'home',
+  fd: { pidx: 0, pid: null, scale: 1.5, selId: null, drawMode: false,
+        drawing: false, ds: null },
+  an: { pidx: 0, pid: null, scale: 1.5 },
+  hasFS: typeof window.showOpenFilePicker === 'function',
+};
+
+// ── Init ───────────────────────────────────────────────────
+(function init() {
+  const badge = document.getElementById('fs-badge');
+  if (S.hasFS) {
+    badge.textContent = '✓ 支援資料夾存取'; badge.className = 'ok';
+  } else {
+    badge.textContent = '下載模式（不支援資料夾）'; badge.className = 'no';
+    document.getElementById('item-save-folder').style.display = 'none';
+  }
+
+  // Global drag-drop
+  document.body.addEventListener('dragover', e => {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.add('drag-over');
+  });
+  document.body.addEventListener('dragleave', e => {
+    if (!e.relatedTarget) document.getElementById('drop-zone').classList.remove('drag-over');
+  });
+  document.body.addEventListener('drop', e => {
+    e.preventDefault();
+    document.getElementById('drop-zone').classList.remove('drag-over');
+    const pdfs = [...e.dataTransfer.files].filter(f =>
+      f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf') ||
+      f.name.toLowerCase().endsWith('.docx'));
+    if (pdfs.length) processFiles(pdfs);
+  });
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.dropdown')) closeDD();
+  });
+
+  // Annotate canvas click
+  document.getElementById('ann-canvas').addEventListener('click', onAnnClick);
+
+  // Form overlay events (attached once)
+  const ov = document.getElementById('form-overlay');
+  ov.addEventListener('mousedown', onOvDown);
+  document.addEventListener('mousemove', onOvMove);
+  document.addEventListener('mouseup', onOvUp);
+
+  // Delete key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Delete' && S.mode === 'form' && S.fd.selId) deleteSelField();
+  });
+
+  // Modal Enter/Esc
+  document.getElementById('modal-bg').addEventListener('keydown', e => {
+    if (e.key === 'Enter') confirmModal();
+    if (e.key === 'Escape') closeModal();
+  });
+})();
+
+// ── File Loading ───────────────────────────────────────────
+async function openFilePicker() {
+  if (S.hasFS) {
+    try {
+      const handles = await window.showOpenFilePicker({
+        multiple: true,
+        types: [{ description: 'PDF / Word Files', accept: {
+          'application/pdf': ['.pdf'],
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+        }}]
+      });
+      processFiles(await Promise.all(handles.map(h => h.getFile())));
+    } catch (e) { if (e.name !== 'AbortError') toast('開啟失敗：' + e.message); }
+  } else {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.multiple = true; inp.accept = '.pdf,application/pdf,.docx';
+    inp.onchange = () => processFiles([...inp.files]);
+    inp.click();
+  }
+}
+
+async function openFolderPicker() {
+  if (S.hasFS) {
+    try {
+      const dir = await window.showDirectoryPicker();
+      const files = [];
+      for await (const e of dir.values())
+        if (e.kind === 'file' && (e.name.toLowerCase().endsWith('.pdf') || e.name.toLowerCase().endsWith('.docx')))
+          files.push(await e.getFile());
+      if (files.length) processFiles(files);
+      else toast('資料夾中找不到 PDF 或 Word 檔案');
+    } catch (e) { if (e.name !== 'AbortError') toast('開啟資料夾失敗：' + e.message); }
+  } else {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.webkitdirectory = true;
+    inp.onchange = () => {
+      const pdfs = [...inp.files].filter(f => f.name.toLowerCase().endsWith('.pdf') || f.name.toLowerCase().endsWith('.docx'));
+      if (pdfs.length) processFiles(pdfs);
+    };
+    inp.click();
+  }
+}
+
+async function convertWordToPdf(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const result = await mammoth.convertToHtml({ arrayBuffer });
+
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;min-height:100px;background:#fff;color:#000;font-family:serif;font-size:12pt;line-height:1.6;padding:60px 72px';
+  container.innerHTML = result.value;
+  document.body.appendChild(container);
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pageW = 595.28, pageH = 841.89, margin = 40;
+    const canvas = await html2canvas(container, { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+    const pdf = new jsPDF({ unit: 'pt', format: 'a4' });
+    const imgW = pageW - margin * 2;
+    const totalImgH = canvas.height * imgW / canvas.width;
+    const availH = pageH - margin * 2;
+    let sourceY = 0;
+    let first = true;
+
+    while (sourceY < canvas.height) {
+      const sourceSliceH = Math.min(availH * canvas.width / imgW, canvas.height - sourceY);
+      const slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = Math.ceil(sourceSliceH);
+      slice.getContext('2d').drawImage(canvas, 0, sourceY, canvas.width, slice.height, 0, 0, canvas.width, slice.height);
+      const sliceImgH = slice.height * imgW / canvas.width;
+      if (!first) pdf.addPage();
+      pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, imgW, sliceImgH);
+      sourceY += slice.height;
+      first = false;
+    }
+
+    return pdf.output('arraybuffer');
+  } finally {
+    document.body.removeChild(container);
+  }
+}
+
+async function processFiles(files) {
+  if (!files.length) return;
+  toast('載入中…');
+  let added = 0;
+  for (const file of files) {
+    try {
+      const isDocx = file.name.toLowerCase().endsWith('.docx');
+      let ab, fileName;
+      if (isDocx) {
+        toast(`轉換 ${file.name} 中…`);
+        ab = await convertWordToPdf(file);
+        fileName = file.name.replace(/\.docx$/i, '.pdf');
+      } else {
+        ab = await file.arrayBuffer();
+        fileName = file.name;
+      }
+      const pjs = await pdfjsLib.getDocument({ data: ab.slice(0) }).promise;
+      const pld = await PDFLib.PDFDocument.load(ab);
+      const fid = uid();
+      S.files.push({ id: fid, name: fileName, ab, pageCount: pjs.numPages, pjs, pld });
+      for (let i = 0; i < pjs.numPages; i++) {
+        const pid = uid();
+        S.pages.push({ id: pid, fid, pidx: i, rot: 0, sel: false });
+        S.annots[pid] = [];
+        S.fields[pid] = [];
+      }
+      added++;
+    } catch (e) { toast(`載入失敗 ${file.name}：${e.message}`); }
+  }
+  if (added) {
+    refreshToolbar();
+    setMode('pages');
+    renderThumbs();
+    renderMergeList();
+    refreshPageSels();
+    toast(`已載入 ${added} 個檔案，共 ${S.pages.length} 頁`);
+  }
+}
+
+// ── Mode ───────────────────────────────────────────────────
+function setMode(m) {
+  S.mode = m;
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + m).classList.add('active');
+  if (m === 'annotate') renderAnnotatePage(S.an.pidx);
+  if (m === 'form') renderFormPage(S.fd.pidx);
+}
+
+function refreshToolbar() {
+  const on = S.pages.length > 0;
+  ['btn-pages','btn-merge','btn-annotate','btn-form','btn-out']
+    .forEach(id => document.getElementById(id).disabled = !on);
+  refreshSplitBtn();
+}
+
+function refreshSplitBtn() {
+  document.getElementById('btn-split').disabled = !S.pages.some(p => p.sel);
+}
+
+// ── Thumbnails ─────────────────────────────────────────────
+function renderThumbs() {
+  const grid = document.getElementById('thumb-grid');
+  grid.innerHTML = '';
+  document.getElementById('pages-count').textContent = `共 ${S.pages.length} 頁`;
+
+  S.pages.forEach((pg, i) => {
+    const file = S.files.find(f => f.id === pg.fid);
+    const item = document.createElement('div');
+    item.className = 'thumb-item' + (pg.sel ? ' selected' : '');
+    item.dataset.i = i;
+
+    const cv = document.createElement('canvas');
+    item.appendChild(cv);
+
+    const foot = document.createElement('div');
+    foot.className = 'thumb-footer';
+    foot.innerHTML = `<span title="${file.name}">${file.name.slice(0,12)} p${pg.pidx+1}</span>
+      <span>
+        <button class="rot-btn" title="逆時針 90°" onclick="rotatePg(${i},-90,event)">↺</button>
+        <button class="rot-btn" title="順時針 90°" onclick="rotatePg(${i},90,event)">↻</button>
+      </span>`;
+    item.appendChild(foot);
+
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.className = 'thumb-check'; cb.checked = pg.sel;
+    cb.addEventListener('change', ev => {
+      ev.stopPropagation();
+      pg.sel = cb.checked;
+      item.classList.toggle('selected', pg.sel);
+      refreshSplitBtn();
+    });
+    item.appendChild(cb);
+
+    item.addEventListener('click', e => {
+      if (e.target === cb || e.target.closest('.thumb-footer')) return;
+      pg.sel = !pg.sel; cb.checked = pg.sel;
+      item.classList.toggle('selected', pg.sel);
+      refreshSplitBtn();
+    });
+
+    grid.appendChild(item);
+    renderThumbCv(cv, file, pg);
+  });
+
+  if (window._sortable) _sortable.destroy();
+  window._sortable = Sortable.create(grid, {
+    animation: 150,
+    onEnd(ev) {
+      const moved = S.pages.splice(ev.oldIndex, 1)[0];
+      S.pages.splice(ev.newIndex, 0, moved);
+    }
+  });
+}
+
+async function renderThumbCv(cv, file, pg) {
+  const page = await file.pjs.getPage(pg.pidx + 1);
+  const vp = page.getViewport({ scale: 0.4, rotation: pg.rot });
+  cv.width = vp.width; cv.height = vp.height;
+  page.render({ canvasContext: cv.getContext('2d'), viewport: vp });
+}
+
+function rotatePg(i, deg, e) {
+  e.stopPropagation();
+  const pg = S.pages[i]; pg.rot = ((pg.rot + deg) % 360 + 360) % 360;
+  const cv = document.querySelector(`[data-i="${i}"] canvas`);
+  const file = S.files.find(f => f.id === pg.fid);
+  if (cv && file) renderThumbCv(cv, file, pg);
+}
+
+function selectAll(v) {
+  S.pages.forEach((p, i) => {
+    p.sel = v;
+    const item = document.querySelector(`[data-i="${i}"]`);
+    if (item) { item.classList.toggle('selected', v); item.querySelector('.thumb-check').checked = v; }
+  });
+  refreshSplitBtn();
+}
+
+// ── Merge List ─────────────────────────────────────────────
+function renderMergeList() {
+  const list = document.getElementById('merge-list');
+  list.innerHTML = '';
+  S.files.forEach(file => {
+    const li = document.createElement('li');
+    li.className = 'merge-item'; li.dataset.fid = file.id;
+    li.innerHTML = `<span class="drag-handle">⠿</span>
+      <div class="file-info">
+        <div class="file-name">${file.name}</div>
+        <div class="file-pages">${file.pageCount} 頁</div>
+      </div>
+      <button class="remove-btn" title="移除" onclick="removeFile('${file.id}')">✕</button>`;
+    list.appendChild(li);
+  });
+  if (window._mergeSortable) _mergeSortable.destroy();
+  window._mergeSortable = Sortable.create(list, {
+    animation: 150, handle: '.drag-handle',
+    onEnd(ev) {
+      const m = S.files.splice(ev.oldIndex, 1)[0];
+      S.files.splice(ev.newIndex, 0, m);
+    }
+  });
+}
+
+function removeFile(fid) {
+  S.files = S.files.filter(f => f.id !== fid);
+  S.pages = S.pages.filter(p => p.fid !== fid);
+  renderMergeList(); renderThumbs(); refreshToolbar(); refreshPageSels();
+  if (!S.files.length) setMode('home');
+}
+
+// ── Merge ──────────────────────────────────────────────────
+async function doMerge() {
+  if (S.files.length < 2) { toast('請載入至少 2 個 PDF 檔案'); return; }
+  toast('合併中…');
+  try {
+    const doc = await PDFLib.PDFDocument.create();
+    for (const file of S.files) {
+      const src = await PDFLib.PDFDocument.load(file.ab);
+      const idxs = [...Array(src.getPageCount()).keys()];
+      const copied = await doc.copyPages(src, idxs);
+      copied.forEach(p => doc.addPage(p));
+    }
+    await saveOutput(await doc.save(), 'merged.pdf', false);
+  } catch (e) { toast('合併失敗：' + e.message); }
+}
+
+// ── Split ──────────────────────────────────────────────────
+async function doSplit() {
+  const sel = S.pages.filter(p => p.sel);
+  if (!sel.length) { toast('請先勾選頁面'); return; }
+  toast('分割中…');
+  try {
+    const doc = await PDFLib.PDFDocument.create();
+    for (const pg of sel) {
+      const file = S.files.find(f => f.id === pg.fid);
+      const [cp] = await doc.copyPages(file.pld, [pg.pidx]);
+      if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
+      doc.addPage(cp);
+    }
+    await saveOutput(await doc.save(), 'split.pdf', false);
+  } catch (e) { toast('分割失敗：' + e.message); }
+}
+
+// ── Annotate ───────────────────────────────────────────────
+function refreshPageSels() {
+  ['ann-page-sel', 'form-page-sel'].forEach(id => {
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = '';
+    S.pages.forEach((pg, i) => {
+      const file = S.files.find(f => f.id === pg.fid);
+      const o = document.createElement('option');
+      o.value = i; o.textContent = `${file.name.slice(0, 14)} — 第 ${pg.pidx + 1} 頁`;
+      sel.appendChild(o);
+    });
+    if (prev < S.pages.length) sel.value = prev;
+  });
+}
+
+async function renderAnnotatePage(idx) {
+  if (!S.pages[idx]) return;
+  S.an.pidx = idx; const pg = S.pages[idx]; S.an.pid = pg.id;
+  const file = S.files.find(f => f.id === pg.fid);
+  const pjsPage = await file.pjs.getPage(pg.pidx + 1);
+  const vp = pjsPage.getViewport({ scale: S.an.scale, rotation: pg.rot });
+  const cv = document.getElementById('ann-canvas');
+  cv.width = vp.width; cv.height = vp.height;
+  await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  renderAnnMarkers();
+}
+
+function onAnnClick(e) {
+  const text = document.getElementById('ann-text').value.trim();
+  if (!text) { toast('請先輸入文字'); return; }
+  const rect = e.target.getBoundingClientRect();
+  const hx = e.clientX - rect.left, hy = e.clientY - rect.top;
+  const cv = document.getElementById('ann-canvas');
+  S.annots[S.an.pid].push({
+    x: hx / S.an.scale,
+    y: (cv.height - hy) / S.an.scale,
+    text,
+    size: +document.getElementById('ann-size').value || 12,
+    color: document.getElementById('ann-color').value
+  });
+  renderAnnMarkers();
+  toast('文字已放置');
+}
+
+function renderAnnMarkers() {
+  const wrap = document.getElementById('ann-canvas-wrap');
+  wrap.querySelectorAll('.ann-marker').forEach(m => m.remove());
+  const cv = document.getElementById('ann-canvas');
+  (S.annots[S.an.pid] || []).forEach((a, i) => {
+    const div = document.createElement('div');
+    div.className = 'ann-marker';
+    div.title = '點擊刪除';
+    div.textContent = a.text;
+    div.style.cssText = `left:${a.x * S.an.scale}px;top:${cv.height - a.y * S.an.scale}px;
+      font-size:${Math.round(a.size * S.an.scale * 0.75)}px;color:${a.color}`;
+    div.addEventListener('click', () => {
+      S.annots[S.an.pid].splice(i, 1); renderAnnMarkers();
+    });
+    wrap.appendChild(div);
+  });
+}
+
+// ── Form Designer ──────────────────────────────────────────
+function selectFormPage(idx) {
+  S.fd.pidx = idx; S.fd.selId = null;
+  renderFormPage(idx); updFieldProps();
+}
+
+async function renderFormPage(idx) {
+  if (!S.pages[idx]) return;
+  S.fd.pidx = idx; const pg = S.pages[idx]; S.fd.pid = pg.id;
+  const file = S.files.find(f => f.id === pg.fid);
+  const pjsPage = await file.pjs.getPage(pg.pidx + 1);
+  const vp = pjsPage.getViewport({ scale: S.fd.scale, rotation: pg.rot });
+  const cv = document.getElementById('form-canvas');
+  cv.width = vp.width; cv.height = vp.height;
+  await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  const ov = document.getElementById('form-overlay');
+  ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
+  renderFieldBoxes();
+}
+
+function toggleDraw() {
+  S.fd.drawMode = !S.fd.drawMode;
+  document.getElementById('btn-draw').classList.toggle('active', S.fd.drawMode);
+  document.getElementById('form-overlay').style.cursor = S.fd.drawMode ? 'crosshair' : 'default';
+  document.getElementById('draw-hint').textContent = S.fd.drawMode ? '拖曳畫出欄位框' : '';
+  if (S.fd.drawMode) { S.fd.selId = null; renderFieldBoxes(); updFieldProps(); }
+}
+
+function ovPos(e) {
+  const r = document.getElementById('form-overlay').getBoundingClientRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function onOvDown(e) {
+  if (!S.fd.drawMode || e.target.closest('.field-box')) return;
+  S.fd.drawing = true; S.fd.ds = ovPos(e);
+  const rb = document.getElementById('rubber-band');
+  rb.style.cssText = `display:block;left:${S.fd.ds.x}px;top:${S.fd.ds.y}px;width:0;height:0`;
+}
+
+function onOvMove(e) {
+  if (!S.fd.drawing) return;
+  const p = ovPos(e), s = S.fd.ds;
+  const x = Math.min(p.x, s.x), y = Math.min(p.y, s.y);
+  const w = Math.abs(p.x - s.x), h = Math.abs(p.y - s.y);
+  const rb = document.getElementById('rubber-band');
+  rb.style.cssText = `display:block;left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+}
+
+function onOvUp(e) {
+  if (!S.fd.drawing) return;
+  S.fd.drawing = false;
+  document.getElementById('rubber-band').style.display = 'none';
+  const p = ovPos(e), s = S.fd.ds;
+  const hx = Math.min(p.x, s.x), hy = Math.min(p.y, s.y);
+  const hw = Math.abs(p.x - s.x), hh = Math.abs(p.y - s.y);
+  if (hw < 10 || hh < 8) return;
+  const sc = S.fd.scale, cvH = document.getElementById('form-canvas').height;
+  _pending = { x: hx/sc, y: (cvH - hy - hh)/sc, w: hw/sc, h: hh/sc };
+  document.getElementById('m-code').value = '';
+  document.getElementById('m-label').value = '';
+  document.getElementById('modal-bg').classList.add('open');
+  setTimeout(() => document.getElementById('m-code').focus(), 50);
+}
+
+let _pending = null;
+function closeModal() { document.getElementById('modal-bg').classList.remove('open'); _pending = null; }
+function confirmModal() {
+  const code = document.getElementById('m-code').value.trim();
+  if (!code) { document.getElementById('m-code').focus(); return; }
+  if (_pending) {
+    const fld = { id: uid(), code, label: document.getElementById('m-label').value.trim() || code,
+                  ..._pending };
+    S.fields[S.fd.pid].push(fld);
+    S.fd.selId = fld.id;
+    renderFieldBoxes(); updFieldProps();
+    toast(`欄位 ${code} 已新增`);
+  }
+  closeModal();
+  if (S.fd.drawMode) toggleDraw();
+}
+
+function renderFieldBoxes() {
+  const ov = document.getElementById('form-overlay');
+  ov.querySelectorAll('.field-box').forEach(b => b.remove());
+  const sc = S.fd.scale, cvH = document.getElementById('form-canvas').height;
+  (S.fields[S.fd.pid] || []).forEach(f => {
+    const hx = f.x * sc, hy = cvH - (f.y + f.h) * sc;
+    const box = document.createElement('div');
+    box.className = 'field-box' + (f.id === S.fd.selId ? ' selected' : '');
+    box.dataset.fid = f.id;
+    box.style.cssText = `left:${hx}px;top:${hy}px;width:${f.w*sc}px;height:${f.h*sc}px`;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'field-label';
+    lbl.textContent = f.code + (f.label !== f.code ? ' ' + f.label : '');
+    box.appendChild(lbl);
+
+    const rh = document.createElement('div');
+    rh.className = 'resize-handle';
+    rh.addEventListener('mousedown', e => { e.stopPropagation(); startResize(e, f, box); });
+    box.appendChild(rh);
+
+    box.addEventListener('mousedown', e => {
+      if (S.fd.drawMode || e.target === rh) return;
+      e.stopPropagation();
+      S.fd.selId = f.id; renderFieldBoxes(); updFieldProps();
+      startMove(e, f, box);
+    });
+
+    ov.appendChild(box);
+  });
+  renderFieldList();
+}
+
+function startMove(e, f, box) {
+  const sx = e.clientX, sy = e.clientY, ox = f.x, oy = f.y;
+  const sc = S.fd.scale, cvH = document.getElementById('form-canvas').height;
+  function mv(e) {
+    f.x = ox + (e.clientX - sx) / sc;
+    f.y = oy - (e.clientY - sy) / sc;
+    box.style.left = f.x * sc + 'px';
+    box.style.top = (cvH - (f.y + f.h) * sc) + 'px';
+    updFieldPropsVals(f);
+  }
+  function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
+
+function startResize(e, f, box) {
+  const sx = e.clientX, sy = e.clientY, ow = f.w, oh = f.h;
+  const sc = S.fd.scale, cvH = document.getElementById('form-canvas').height;
+  function mv(e) {
+    f.w = Math.max(10, ow + (e.clientX - sx) / sc);
+    f.h = Math.max(6, oh - (e.clientY - sy) / sc);
+    box.style.width = f.w * sc + 'px'; box.style.height = f.h * sc + 'px';
+    box.style.top = (cvH - (f.y + f.h) * sc) + 'px';
+    updFieldPropsVals(f);
+  }
+  function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+  document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+}
+
+function deleteSelField() {
+  if (!S.fd.selId) return;
+  S.fields[S.fd.pid] = S.fields[S.fd.pid].filter(f => f.id !== S.fd.selId);
+  S.fd.selId = null; renderFieldBoxes(); updFieldProps();
+}
+
+function updProp(k, v) {
+  const f = getSelField(); if (!f) return;
+  f[k] = v; renderFieldBoxes();
+}
+function updPropN(k, v) { updProp(k, +v); }
+function getSelField() {
+  if (!S.fd.selId) return null;
+  return (S.fields[S.fd.pid] || []).find(f => f.id === S.fd.selId);
+}
+
+function updFieldProps() {
+  const f = getSelField();
+  document.getElementById('no-sel-msg').style.display = f ? 'none' : '';
+  document.getElementById('field-props-panel').style.display = f ? '' : 'none';
+  document.getElementById('btn-del-field').disabled = !f;
+  if (f) updFieldPropsVals(f);
+  renderFieldList();
+}
+
+function updFieldPropsVals(f) {
+  document.getElementById('prop-code').value = f.code;
+  document.getElementById('prop-label').value = f.label;
+  document.getElementById('prop-x').value = Math.round(f.x);
+  document.getElementById('prop-y').value = Math.round(f.y);
+  document.getElementById('prop-w').value = Math.round(f.w);
+  document.getElementById('prop-h').value = Math.round(f.h);
+}
+
+function renderFieldList() {
+  const el = document.getElementById('field-list');
+  const fields = S.fields[S.fd.pid] || [];
+  el.innerHTML = '';
+  if (!fields.length) { el.innerHTML = '<span style="color:#555">尚無欄位</span>'; return; }
+  fields.forEach(f => {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-radius:4px;cursor:pointer;background:' +
+      (f.id === S.fd.selId ? '#2a2a3e' : 'transparent');
+    row.innerHTML = `<span style="color:${f.id===S.fd.selId?'#f59e0b':'#93c5fd'}">${f.code}</span>
+      <span style="color:#666;font-size:11px">${f.label}</span>`;
+    row.addEventListener('click', () => { S.fd.selId = f.id; renderFieldBoxes(); updFieldProps(); });
+    el.appendChild(row);
+  });
+}
+
+// ── Export ─────────────────────────────────────────────────
+async function doExport(toFolder) {
+  if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
+  toast('產生 PDF 中…');
+  try {
+    const doc = await PDFLib.PDFDocument.create();
+    const font = await doc.embedFont(PDFLib.StandardFonts.Helvetica);
+
+    for (const pg of S.pages) {
+      const file = S.files.find(f => f.id === pg.fid);
+      const [cp] = await doc.copyPages(file.pld, [pg.pidx]);
+      if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
+      doc.addPage(cp);
+      const outPage = doc.getPage(doc.getPageCount() - 1);
+
+      // Text annotations
+      for (const a of (S.annots[pg.id] || [])) {
+        const hx = a.color.replace('#','');
+        outPage.drawText(a.text, {
+          x: a.x, y: a.y, size: a.size, font,
+          color: PDFLib.rgb(parseInt(hx.slice(0,2),16)/255,
+                            parseInt(hx.slice(2,4),16)/255,
+                            parseInt(hx.slice(4,6),16)/255)
+        });
+      }
+
+      // Form fields
+      const form = doc.getForm();
+      for (const f of (S.fields[pg.id] || [])) {
+        try {
+          const tf = form.createTextField(f.code);
+          tf.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
+        } catch (e) {
+          // Duplicate code: append suffix
+          try {
+            const tf2 = form.createTextField(f.code + '_' + f.id.slice(-3));
+            tf2.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
+          } catch (_) {}
+        }
+      }
+    }
+
+    await saveOutput(await doc.save(), 'output.pdf', toFolder);
+  } catch (e) { toast('輸出失敗：' + e.message); console.error(e); }
+}
+
+async function saveOutput(bytes, filename, toFolder) {
+  if (toFolder && S.hasFS) {
+    try {
+      const dir = await window.showDirectoryPicker();
+      const fh = await dir.getFileHandle(filename, { create: true });
+      const w = await fh.createWritable();
+      await w.write(bytes); await w.close();
+      toast('已儲存：' + filename); return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      toast('資料夾儲存失敗，改為下載');
+    }
+  }
+  const blob = new Blob([bytes], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast('已下載：' + filename);
+}
+
+// ── Helpers ────────────────────────────────────────────────
+function toggleDD(id) {
+  const m = document.getElementById(id + '-menu');
+  const isOpen = m.classList.contains('open');
+  closeDD();
+  if (!isOpen) m.classList.add('open');
+}
+function closeDD() { document.querySelectorAll('.dd-menu').forEach(m => m.classList.remove('open')); }
+
+let _toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(_toastT); _toastT = setTimeout(() => el.classList.remove('show'), 2800);
+}
+</script>
+</body>
+</html>
