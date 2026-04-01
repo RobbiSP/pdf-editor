@@ -150,6 +150,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
     <div class="dd-menu" id="dd-out-menu">
       <div class="dd-item" id="item-save-folder" onclick="doExport(true);closeDD()">儲存到資料夾…</div>
       <div class="dd-item" onclick="doExport(false);closeDD()">下載檔案</div>
+      <div class="dd-item" onclick="openEncryptModal();closeDD()">🔒 加密後下載…</div>
     </div>
   </div>
   <span id="fs-badge"></span>
@@ -207,6 +208,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
       <button class="ann-tool-btn" id="ann-tool-marker" onclick="setAnnTool('marker')">螢光筆</button>
       <button class="ann-tool-btn" id="ann-tool-rect" onclick="setAnnTool('rect')">矩形</button>
       <button class="ann-tool-btn" id="ann-tool-ellipse" onclick="setAnnTool('ellipse')">橢圓</button>
+      <button class="ann-tool-btn" id="ann-tool-eraser" onclick="setAnnTool('eraser')">🧹 橡皮擦</button>
       <div class="sep"></div>
 
       <!-- Color swatches -->
@@ -337,6 +339,26 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">取消</button>
       <button class="btn primary" onclick="confirmModal()">確認新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- Encrypt Modal -->
+<div id="encrypt-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center">
+  <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:24px;min-width:320px;max-width:420px;width:100%">
+    <h3 style="margin-bottom:16px;font-size:15px">🔒 加密 PDF 後下載</h3>
+    <div class="modal-field">
+      <label>開啟密碼</label>
+      <input id="enc-pwd" type="password" placeholder="使用者需輸入此密碼才能開啟" autocomplete="new-password">
+    </div>
+    <div class="modal-field">
+      <label>確認密碼</label>
+      <input id="enc-pwd2" type="password" placeholder="再次輸入相同密碼" autocomplete="new-password">
+    </div>
+    <p id="enc-err" style="font-size:12px;color:#f87171;margin-bottom:8px;display:none"></p>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeEncryptModal()">取消</button>
+      <button class="btn primary" onclick="confirmEncrypt()">確認下載</button>
     </div>
   </div>
 </div>
@@ -893,23 +915,26 @@ async function renderAnnotatePage(idx) {
 // Set annotation tool
 function setAnnTool(tool) {
   S.an.tool = tool;
-  ['text','pen','marker','rect','ellipse'].forEach(t => {
+  ['text','pen','marker','rect','ellipse','eraser'].forEach(t => {
     document.getElementById('ann-tool-' + t).classList.toggle('active', t === tool);
   });
-  // Show/hide fill opacity for rect/ellipse
+  // 顯示/隱藏底色透明度（rect/ellipse）
   const hasArea = tool === 'rect' || tool === 'ellipse';
   document.getElementById('fill-opacity-row').style.display = hasArea ? '' : 'none';
-  // Show/hide text controls
+  // 顯示/隱藏文字控制
   document.getElementById('ann-text-controls').style.display = tool === 'text' ? '' : 'none';
-  // Update hint
+  // 更新游標
+  document.getElementById('ann-draw-canvas').style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
+  // 更新操作提示
   const hints = {
     text: '點擊頁面放置 | 點擊標記刪除',
     pen: '按住滑鼠拖曳繪製',
     marker: '按住滑鼠拖曳塗抹',
     rect: '拖曳畫出矩形',
-    ellipse: '拖曳畫出橢圓'
+    ellipse: '拖曳畫出橢圓',
+    eraser: '點擊或拖曳刪除標示（畫線、矩形、橢圓）'
   };
-  document.getElementById('ann-hint').textContent = hints[tool];
+  document.getElementById('ann-hint').textContent = hints[tool] || '';
 }
 
 // Set annotation color
@@ -951,11 +976,15 @@ function onDrawStart(e) {
   const p = dcPos(e);
   S.an.drawStart = p;
   S.an.currentPoints = [p];
+  // 橡皮擦：mousedown 立即先嘗試删除
+  if (S.an.tool === 'eraser') { eraseAt(p); return; }
 }
 
 function onDrawMove(e) {
   if (!S.an.drawing || S.an.tool === 'text') return;
   const p = dcPos(e);
+  // 橡皮擦：拖曳持續删除
+  if (S.an.tool === 'eraser') { eraseAt(p); return; }
   if (S.an.tool === 'pen' || S.an.tool === 'marker') {
     S.an.currentPoints.push(p);
   }
@@ -966,6 +995,8 @@ function onDrawMove(e) {
 function onDrawEnd(e) {
   if (!S.an.drawing || S.an.tool === 'text') return;
   S.an.drawing = false;
+  // 橡皮擦不需要後續處理
+  if (S.an.tool === 'eraser') return;
   const p = dcPos(e);
   const start = S.an.drawStart;
   const cv = document.getElementById('ann-canvas');
@@ -1127,6 +1158,60 @@ function renderAnnMarkers() {
     });
     wrap.appendChild(div);
   });
+}
+
+// ── 橡皮擦 ─────────────────────────────────────────────────
+const ERASER_HIT_R = 15; // px
+
+function eraseAt(canvasPos) {
+  const cv = document.getElementById('ann-canvas');
+  const sc = S.an.scale, cvH = cv.height;
+  const annots = S.annots[S.an.pid];
+  if (!annots) return;
+  const before = annots.length;
+  // 從後往前尋，避免刪除時索引偵移
+  for (let i = annots.length - 1; i >= 0; i--) {
+    const a = annots[i];
+    if (a.type === 'text') continue; // 文字用黮擊標記刪除
+    if (hitTestAnnot(a, canvasPos.x, canvasPos.y, sc, cvH)) {
+      annots.splice(i, 1);
+    }
+  }
+  if (annots.length !== before) renderAnnOverlay();
+}
+
+function hitTestAnnot(a, cx, cy, sc, cvH) {
+  if (a.type === 'pen' || a.type === 'marker') {
+    const pts = a.points;
+    if (!pts || pts.length < 2) return false;
+    // 拆線寬度一半 + 橡皮擦半徑
+    const hw = (a.width * sc) / 2 + ERASER_HIT_R;
+    for (let i = 0; i < pts.length - 1; i++) {
+      const x1 = pts[i].x * sc,   y1 = cvH - pts[i].y * sc;
+      const x2 = pts[i+1].x * sc, y2 = cvH - pts[i+1].y * sc;
+      if (distToSegment(cx, cy, x1, y1, x2, y2) < hw) return true;
+    }
+    return false;
+  } else if (a.type === 'rect') {
+    const sx = a.x * sc, sy = cvH - (a.y + a.h) * sc;
+    const sw = a.w * sc, sh = a.h * sc;
+    return cx >= sx - ERASER_HIT_R && cx <= sx + sw + ERASER_HIT_R &&
+           cy >= sy - ERASER_HIT_R && cy <= sy + sh + ERASER_HIT_R;
+  } else if (a.type === 'ellipse') {
+    const ex = a.cx * sc, ey = cvH - a.cy * sc;
+    const rx = a.rx * sc + ERASER_HIT_R, ry = a.ry * sc + ERASER_HIT_R;
+    return ((cx - ex) / rx) ** 2 + ((cy - ey) / ry) ** 2 <= 1;
+  }
+  return false;
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
 // ── Form Designer ──────────────────────────────────────────
@@ -1319,7 +1404,27 @@ function renderFieldList() {
 }
 
 // ── Export ─────────────────────────────────────────────────
-async function doExport(toFolder) {
+function openEncryptModal() {
+  if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
+  document.getElementById('enc-pwd').value = '';
+  document.getElementById('enc-pwd2').value = '';
+  document.getElementById('enc-err').style.display = 'none';
+  document.getElementById('encrypt-modal-bg').style.display = 'flex';
+  setTimeout(() => document.getElementById('enc-pwd').focus(), 50);
+}
+function closeEncryptModal() {
+  document.getElementById('encrypt-modal-bg').style.display = 'none';
+}
+async function confirmEncrypt() {
+  const pwd  = document.getElementById('enc-pwd').value;
+  const pwd2 = document.getElementById('enc-pwd2').value;
+  const errEl = document.getElementById('enc-err');
+  if (!pwd)  { errEl.textContent = '請輸入密碼'; errEl.style.display = ''; return; }
+  if (pwd !== pwd2) { errEl.textContent = '兩次密碼不一致'; errEl.style.display = ''; return; }
+  closeEncryptModal();
+  await doExport(false, pwd);
+}
+async function doExport(toFolder, userPassword) {
   if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
   toast('產生 PDF 中…');
   try {
@@ -1412,7 +1517,23 @@ async function doExport(toFolder) {
       }
     }
 
-    await saveOutput(await doc.save(), 'output.pdf', toFolder);
+    // 加密輸出選項
+    const saveOpts = {};
+    if (userPassword) {
+      saveOpts.userPassword = userPassword;
+      saveOpts.ownerPassword = userPassword;
+      saveOpts.permissions = {
+        printing: 'highResolution',
+        modifying: false,
+        copying: false,
+        annotating: true,
+        fillingForms: true,
+        contentAccessibility: true,
+        documentAssembly: false,
+      };
+    }
+    await saveOutput(await doc.save(saveOpts), 'output.pdf', toFolder);
+    if (userPassword) toast('已加密並下載 output.pdf');
   } catch (e) { toast('輸出失敗：' + e.message); console.error(e); }
 }
 
