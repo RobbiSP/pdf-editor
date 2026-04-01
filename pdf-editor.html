@@ -127,7 +127,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
 /* ── 文字編輯面板 ── */
-#panel-text{display:flex;flex-direction:column;overflow:hidden}
+#panel-text{flex-direction:column;overflow:hidden}
 #txt-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a1a2e;border-bottom:1px solid #2d2d4a;flex-wrap:wrap;flex-shrink:0}
 #txt-body{display:flex;flex:1;overflow:hidden}
 #txt-canvas-area{flex:1;overflow:auto;background:#2a2a3e;display:flex;justify-content:center;padding:20px}
@@ -140,6 +140,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .txt-box{position:absolute;outline:none;border:none;background:transparent;cursor:text;min-width:40px;min-height:1em;white-space:pre;font-family:sans-serif;line-height:1.3;padding:2px 4px}
 .txt-box[data-sel="1"]{outline:2px dashed #818cf8}
 .txt-box.txt-select-mode{cursor:default}
+body.space-pan,body.space-pan *{cursor:grab !important}
+body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
+.btn.mode-active{background:#3730a3;border-color:#4c6ef5;color:#fff}
 </style>
 </head>
 <body>
@@ -152,14 +155,20 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
       <div class="dd-item" onclick="openFolderPicker();closeDD()">選擇資料夾（批次）</div>
     </div>
   </div>
+  <div class="sep"></div>
   <button class="btn" id="btn-pages" onclick="setMode('pages')" disabled>頁面管理</button>
-  <button class="btn" id="btn-merge" onclick="setMode('merge')" disabled>合併</button>
   <button class="btn" id="btn-annotate" onclick="setMode('annotate')" disabled>標示標色</button>
   <button class="btn" id="btn-text" onclick="setMode('text')" disabled>文字編輯</button>
   <button class="btn" id="btn-form" onclick="setMode('form')" disabled>表單設計</button>
   <div class="sep"></div>
-  <button class="btn" id="btn-split" onclick="setMode('split')" disabled>拆分 PDF</button>
+  <button class="btn" id="btn-merge" onclick="setMode('merge')" disabled>合併</button>
+  <button class="btn" id="btn-split" onclick="setMode('split')" disabled>拆分</button>
   <div class="sep"></div>
+  <div id="zoom-ctrl" style="display:none;align-items:center;gap:4px">
+    <button class="btn" style="padding:4px 10px;font-size:15px;line-height:1" onclick="stepZoom(-10)">－</button>
+    <span id="zoom-val" style="font-size:13px;min-width:42px;text-align:center">150%</span>
+    <button class="btn" style="padding:4px 10px;font-size:15px;line-height:1" onclick="stepZoom(+10)">＋</button>
+  </div>
   <div class="dropdown" id="dd-out">
     <button class="btn" id="btn-out" onclick="toggleDD('dd-out')" disabled>💾 輸出 ▾</button>
     <div class="dd-menu" id="dd-out-menu">
@@ -269,7 +278,17 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
       <button class="ann-tool-btn active" id="txt-tool-add" onclick="setTxtTool('add')">➕ 新增文字</button>
       <button class="ann-tool-btn" id="txt-tool-select" onclick="setTxtTool('select')">↖ 選取</button>
       <div class="sep"></div>
-      <span id="txt-hint" style="font-size:12px;color:#666">點擊頁面放置文字框</span>
+      <label style="font-size:12px;color:#888">顏色：</label>
+      <div id="txt-colors" style="display:flex;gap:4px">
+        <div class="color-swatch active" style="background:#000000" data-color="#000000" onclick="setTxtColor(this)" title="黑"></div>
+        <div class="color-swatch" style="background:#ffffff;border-color:#666" data-color="#ffffff" onclick="setTxtColor(this)" title="白"></div>
+        <div class="color-swatch" style="background:#e03131" data-color="#e03131" onclick="setTxtColor(this)" title="紅"></div>
+        <div class="color-swatch" style="background:#1971c2" data-color="#1971c2" onclick="setTxtColor(this)" title="藍"></div>
+        <div class="color-swatch" style="background:#2f9e44" data-color="#2f9e44" onclick="setTxtColor(this)" title="綠"></div>
+        <div class="color-swatch" style="background:#f59f00" data-color="#f59f00" onclick="setTxtColor(this)" title="黃"></div>
+      </div>
+      <div class="sep"></div>
+      <span id="txt-hint" style="font-size:12px;color:#666">點擊空白處放置文字框；長按可拖移</span>
     </div>
     <div id="txt-body">
       <div id="txt-canvas-area">
@@ -625,7 +644,8 @@ const S = {
   },
   split: { segments: [] },
   textBoxes: {},  // pageId → [{id, x, y, text, size, color, bgColor, hasBg}]
-  tx: { pidx: 0, pid: null, scale: 1.5, tool: 'add', selId: null },
+  tx: { pidx: 0, pid: null, scale: 1.5, tool: 'add', selId: null, color: '#000000' },
+  viewScale: 1.5,
   hasFS: typeof window.showOpenFilePicker === 'function',
 };
 
@@ -669,6 +689,42 @@ const S = {
   // Text editor overlay events
   const txOv = document.getElementById('txt-overlay');
   txOv.addEventListener('click', onTxtOverlayClick);
+
+  // Space+drag pan for all PDF canvas areas
+  (function() {
+    let spaceDown = false, panStart = null;
+    document.addEventListener('keydown', e => {
+      if (e.code === 'Space' && !e.target.matches('input,textarea,[contenteditable="true"]') && !spaceDown) {
+        spaceDown = true;
+        document.body.classList.add('space-pan');
+        e.preventDefault();
+      }
+    });
+    document.addEventListener('keyup', e => {
+      if (e.code === 'Space') {
+        spaceDown = false; panStart = null;
+        document.body.classList.remove('space-pan', 'panning');
+      }
+    });
+    ['ann-canvas-area','txt-canvas-area','form-canvas-area'].forEach(id => {
+      document.getElementById(id).addEventListener('mousedown', e => {
+        if (!spaceDown) return;
+        const area = document.getElementById(id);
+        panStart = { el: area, sx: e.clientX, sy: e.clientY, sl: area.scrollLeft, st: area.scrollTop };
+        document.body.classList.add('panning');
+        e.preventDefault(); e.stopPropagation();
+      });
+    });
+    document.addEventListener('mousemove', e => {
+      if (!panStart) return;
+      panStart.el.scrollLeft = panStart.sl - (e.clientX - panStart.sx);
+      panStart.el.scrollTop  = panStart.st - (e.clientY - panStart.sy);
+    });
+    document.addEventListener('mouseup', () => {
+      if (panStart) { panStart = null; document.body.classList.remove('panning'); }
+    });
+    window._spaceDown = () => spaceDown;
+  })();
 
   // Form overlay events
   const ov = document.getElementById('form-overlay');
@@ -838,6 +894,12 @@ function setMode(m) {
   S.mode = m;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + m).classList.add('active');
+  ['pages','annotate','text','form','merge','split'].forEach(id => {
+    const btn = document.getElementById('btn-' + id);
+    if (btn) btn.classList.toggle('mode-active', id === m);
+  });
+  const zoomCtrl = document.getElementById('zoom-ctrl');
+  zoomCtrl.style.display = ['annotate','text','form'].includes(m) ? 'flex' : 'none';
   if (m === 'annotate') renderAnnotatePage(S.an.pidx);
   if (m === 'form') renderFormPage(S.fd.pidx);
   if (m === 'text') renderTextPage(S.tx.pidx);
@@ -1182,15 +1244,35 @@ function setAnnTool(tool) {
 function setTxtTool(tool) {
   S.tx.tool = tool;
   ['add','select'].forEach(t => {
-    document.getElementById('txt-tool-' + t).classList.toggle('active', t === tool);
+    const btn = document.getElementById('txt-tool-' + t);
+    if (btn) btn.classList.toggle('active', t === tool);
   });
   document.getElementById('txt-hint').textContent =
-    tool === 'add' ? '點擊頁面放置文字框' : '點擊文字框選取；拖曳可移動';
+    tool === 'add' ? '點擊空白處放置文字框；長按可拖移' : '點擊文字框選取；拖曳可移動';
   document.querySelectorAll('.txt-box').forEach(b => {
     b.classList.toggle('txt-select-mode', tool === 'select');
     b.contentEditable = tool === 'add' ? 'true' : 'false';
   });
+  document.getElementById('txt-overlay').style.pointerEvents = tool === 'add' ? 'auto' : 'none';
   if (tool === 'select') selectTxtBox(null);
+}
+
+function setTxtColor(el) {
+  S.tx.color = el.dataset.color;
+  document.querySelectorAll('#txt-colors .color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+}
+
+function stepZoom(delta) {
+  const cur = Math.round(S.viewScale * 100);
+  const next = Math.max(10, Math.min(200, cur + delta));
+  S.viewScale = next / 100;
+  S.an.scale = S.tx.scale = S.fd.scale = S.viewScale;
+  document.getElementById('zoom-val').textContent = next + '%';
+  const m = S.mode;
+  if (m === 'annotate') renderAnnotatePage(S.an.pidx);
+  else if (m === 'text') renderTextPage(S.tx.pidx);
+  else if (m === 'form') renderFormPage(S.fd.pidx);
 }
 
 async function renderTextPage(idx) {
@@ -1205,7 +1287,7 @@ async function renderTextPage(idx) {
   await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
   const ov = document.getElementById('txt-overlay');
   ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
-  ov.style.pointerEvents = 'none';
+  ov.style.pointerEvents = S.tx.tool === 'add' ? 'auto' : 'none';
   renderTxtBoxes();
 }
 
@@ -1231,33 +1313,70 @@ function createTxtBoxEl(tb, cvH, sc) {
   if (tb.id === S.tx.selId) el.dataset.sel = '1';
   el.addEventListener('input', () => { tb.text = el.innerText; });
   el.addEventListener('blur',  () => { tb.text = el.innerText; });
+  el.addEventListener('click', e => { e.stopPropagation(); });
   el.addEventListener('mousedown', e => {
-    if (S.tx.tool !== 'select') return;
-    e.preventDefault(); e.stopPropagation();
-    selectTxtBox(tb.id);
-    const startX = e.clientX, startY = e.clientY, ox = tb.x, oy = tb.y;
-    const cv = document.getElementById('txt-canvas');
-    function mv(e) {
-      tb.x = ox + (e.clientX - startX) / S.tx.scale;
-      tb.y = oy - (e.clientY - startY) / S.tx.scale;
-      el.style.left = (tb.x * S.tx.scale) + 'px';
-      el.style.top  = (cv.height - tb.y * S.tx.scale - tb.size * S.tx.scale * 1.3) + 'px';
+    if (S.tx.tool === 'select') {
+      e.preventDefault(); e.stopPropagation();
+      selectTxtBox(tb.id);
+      const startX = e.clientX, startY = e.clientY, ox = tb.x, oy = tb.y;
+      const cv = document.getElementById('txt-canvas');
+      function mv(e) {
+        tb.x = ox + (e.clientX - startX) / S.tx.scale;
+        tb.y = oy - (e.clientY - startY) / S.tx.scale;
+        el.style.left = (tb.x * S.tx.scale) + 'px';
+        el.style.top  = (cv.height - tb.y * S.tx.scale - tb.size * S.tx.scale * 1.3) + 'px';
+      }
+      function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
+      document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
+    } else if (S.tx.tool === 'add') {
+      e.stopPropagation();
+      let dragging = false;
+      const ox = tb.x, oy = tb.y, startX = e.clientX, startY = e.clientY;
+      const cv = document.getElementById('txt-canvas');
+      const timer = setTimeout(() => {
+        dragging = true;
+        el.contentEditable = 'false';
+        el.style.cursor = 'grabbing';
+        el.style.outline = '2px dashed #f59f00';
+      }, 300);
+      function mv(e) {
+        if (!dragging) return;
+        e.preventDefault();
+        tb.x = ox + (e.clientX - startX) / S.tx.scale;
+        tb.y = oy - (e.clientY - startY) / S.tx.scale;
+        el.style.left = (tb.x * S.tx.scale) + 'px';
+        el.style.top  = (cv.height - tb.y * S.tx.scale - tb.size * S.tx.scale * 1.3) + 'px';
+      }
+      function up() {
+        clearTimeout(timer);
+        if (dragging) {
+          dragging = false;
+          el.contentEditable = 'true';
+          el.style.cursor = '';
+          el.style.outline = '';
+        }
+        document.removeEventListener('mousemove', mv);
+        document.removeEventListener('mouseup', up);
+      }
+      document.addEventListener('mousemove', mv);
+      document.addEventListener('mouseup', up);
     }
-    function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
-    document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
   });
   ov.appendChild(el);
 }
 
 function onTxtOverlayClick(e) {
-  if (S.tx.tool !== 'add' || !S.tx.pid) return;
+  if (window._spaceDown()) return;
+  if (!S.tx.pid) return;
+  if (e.target.classList.contains('txt-box')) { e.target.focus(); return; }
+  if (S.tx.tool !== 'add') return;
   const wrap = document.getElementById('txt-canvas-wrap');
   const r = wrap.getBoundingClientRect();
   const cv = document.getElementById('txt-canvas');
   const sc = S.tx.scale;
   const cx = e.clientX - r.left, cy = e.clientY - r.top;
   const tb = { id: uid(), x: cx / sc, y: (cv.height - cy) / sc,
-               text: '', size: 14, color: '#000000', bgColor: '#ffff00', hasBg: false };
+               text: '', size: 14, color: S.tx.color, bgColor: '#ffff00', hasBg: false };
   if (!S.textBoxes[S.tx.pid]) S.textBoxes[S.tx.pid] = [];
   S.textBoxes[S.tx.pid].push(tb);
   createTxtBoxEl(tb, cv.height, sc);
@@ -1343,6 +1462,7 @@ function onDrawClick(e) {
 }
 
 function onDrawStart(e) {
+  if (window._spaceDown()) return;
   if (S.an.tool === 'text') return;
   if (e.button !== 0) return;
   S.an.drawing = true;
@@ -1621,6 +1741,7 @@ function ovPos(e) {
 }
 
 function onOvDown(e) {
+  if (window._spaceDown()) return;
   if (!S.fd.drawMode || e.target.closest('.field-box')) return;
   S.fd.drawing = true; S.fd.ds = ovPos(e);
   const rb = document.getElementById('rubber-band');
