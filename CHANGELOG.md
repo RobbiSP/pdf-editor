@@ -48,15 +48,32 @@
 
 ### 規劃中
 
-#### 🔐 加密改為 ZIP（替代 PDF 加密）
+#### 🔐 PDF 後端加密（推薦方案）
 
-- **理由**：PDF 原生加密實作複雜、兼容性差；ZIP 加密更標準、廣泛支持
-- **方案**：導出 PDF 後自動壓縮成加密 ZIP，用戶下載後解壓即用
+- **方案**：前端導出 PDF → 送後端加密 → 用戶下載加密檔案
 - **優點**：
-  - ZIP 加密在所有平台標準支持（Windows/Mac/Linux）
-  - 使用者體驗簡單（雙擊解壓）
-  - 實現穩定可靠
-- **狀態**：暫時擱置，待技術評估後決定是否繼續
+  - 使用成熟的 PDF 庫（pypdf、reportlab 等）
+  - 原生支援 PDF 安全處理程序（RC4、AES）
+  - 可設定用戶密碼 / 所有者密碼 / 權限控制
+  - 實作簡單（~5 行代碼）
+- **技術棧**：Python (Flask/FastAPI) + pypdf
+- **範例**：
+
+  ```python
+  from pypdf import PdfReader, PdfWriter
+  writer = PdfWriter()
+  writer.add_page(reader.pages[0])
+  writer.encrypt("userPassword", "ownerPassword")
+  ```
+
+- **狀態**：待實作，優先於其他加密方案
+
+#### 🔐 ZIP 加密備選方案
+
+- **理由**：若需要純前端或無後端環境
+- **方案**：導出 PDF → 壓縮成加密 ZIP → 用戶下載解壓
+- **優缺**：跨平台支持 vs. 多一個解壓步驟
+- **狀態**：備選，暫不優先
 
 #### 🎨 其他 UI/UX 改進
 
