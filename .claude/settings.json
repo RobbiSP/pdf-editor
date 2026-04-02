@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "prompt",
+            "if": "Bash(git commit*)",
+            "prompt": "使用者即將執行 git commit。請在 commit 執行前完成以下步驟：\n\n1. 執行 `git diff --staged --name-only` 確認本次 staged 的檔案清單\n2. 確認專案根目錄是否有 CHANGELOG.md\n3. 判斷 CHANGELOG.md 是否需要更新：\n   - 若本次變更為功能新增（feat）→ minor 版本升級\n   - 若本次變更為修正（fix）→ patch 版本升級\n   - 若本次變更為重大變更（breaking change）→ major 版本升級\n   - 若本次只是設定、文件或 chore 類變更 → 可不更新版本號，但仍需補充記錄\n4. 依照 CHANGELOG.md 現有格式，新增一個版本區塊，內容以繁體中文撰寫，說明本次變更的功能與細節\n5. 執行 `git add CHANGELOG.md` 將更新後的 CHANGELOG.md 加入本次 commit\n6. 完成後繼續執行原本的 git commit 指令\n\n若 CHANGELOG.md 已是最新（本次 staged 檔案只有 CHANGELOG.md 本身，或純粹是設定類檔案），則直接允許 commit 繼續執行即可。",
+            "timeout": 120,
+            "statusMessage": "檢查並更新 CHANGELOG.md…"
+          }
+        ]
+      }
+    ]
+  }
+}
