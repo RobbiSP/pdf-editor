@@ -10,6 +10,8 @@
 <script src="https://unpkg.com/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4d4d8;height:100vh;display:flex;flex-direction:column;overflow:hidden;user-select:none}
@@ -60,8 +62,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #panel-annotate{flex-direction:column}
 #ann-toolbar{padding:8px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex-shrink:0}
 .ann-sel{background:#0f0f1a;border:1px solid #444;color:#d4d4d8;padding:4px 8px;border-radius:4px;font-size:13px}
-#ann-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;justify-content:center;padding:20px}
-#ann-canvas-wrap{position:relative;flex-shrink:0}
+#ann-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;padding:20px}
+#ann-canvas-wrap{position:relative;flex-shrink:0;margin:0 auto}
 #ann-canvas{display:block}
 #ann-draw-canvas{position:absolute;top:0;left:0;cursor:crosshair}
 .ann-marker{position:absolute;cursor:pointer;background:rgba(76,110,245,.15);border:1px solid #4c6ef5;border-radius:2px;padding:1px 5px;font-size:11px;color:#93c5fd;white-space:nowrap;pointer-events:all}
@@ -77,8 +79,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #panel-form{flex-direction:column}
 #form-toolbar{padding:8px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-shrink:0}
 #form-body{flex:1;display:flex;overflow:hidden}
-#form-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;justify-content:center;padding:20px}
-#form-canvas-wrap{position:relative;flex-shrink:0}
+#form-canvas-area{flex:1;overflow:auto;background:#0f0f1a;display:flex;align-items:flex-start;padding:20px}
+#form-canvas-wrap{position:relative;flex-shrink:0;margin:0 auto}
 #form-canvas{display:block}
 #form-overlay{position:absolute;top:0;left:0}
 .field-box{position:absolute;border:2px solid #4c6ef5;background:rgba(76,110,245,.12);border-radius:2px;cursor:move}
@@ -130,19 +132,39 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #panel-text{flex-direction:column;overflow:hidden}
 #txt-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a1a2e;border-bottom:1px solid #2d2d4a;flex-wrap:wrap;flex-shrink:0}
 #txt-body{display:flex;flex:1;overflow:hidden}
-#txt-canvas-area{flex:1;overflow:auto;background:#2a2a3e;display:flex;justify-content:center;padding:20px}
-#txt-canvas-wrap{position:relative;display:inline-block}
+#txt-canvas-area{flex:1;overflow:auto;background:#2a2a3e;display:flex;padding:20px}
+#txt-canvas-wrap{position:relative;display:inline-block;margin:0 auto}
 #txt-canvas{display:block}
 #txt-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
 #txt-props{width:200px;background:#1a1a2e;border-left:1px solid #2d2d4a;padding:16px;overflow-y:auto;flex-shrink:0}
 #txt-props h3{font-size:14px;color:#a5b4fc;margin-bottom:12px;border-bottom:1px solid #2d2d4a;padding-bottom:8px}
 /* 文字框樣式 */
 .txt-box{position:absolute;outline:none;border:none;background:transparent;cursor:text;min-width:40px;min-height:1em;white-space:pre;font-family:sans-serif;line-height:1.3;padding:2px 4px}
-.txt-box[data-sel="1"]{outline:2px dashed #818cf8}
+.txt-box[data-sel="1"]{outline:2px solid #4c6ef5;box-shadow:0 0 0 3px rgba(76,110,245,.2)}
 .txt-box.txt-select-mode{cursor:default}
+#txt-float-toolbar{display:none;position:absolute;background:#1e1e2e;border:1px solid #444;border-radius:6px;padding:4px 8px;flex-wrap:wrap;gap:6px;align-items:center;z-index:100;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.4)}
+#txt-float-toolbar.show{display:flex}
+.txt-size-display{font-size:12px;color:#d4d4d8;cursor:pointer;padding:2px 4px;border-radius:3px;border:1px solid #555;min-width:36px;text-align:center}
+.txt-size-display:hover{border-color:#4c6ef5}
+#txt-resize-handle{position:absolute;width:12px;height:12px;background:#4c6ef5;border:2px solid #fff;border-radius:2px;cursor:se-resize;z-index:101;display:none}
+#txt-resize-handle.show{display:block}
 body.space-pan,body.space-pan *{cursor:grab !important}
 body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 .btn.mode-active{background:#3730a3;border-color:#4c6ef5;color:#fff}
+/* ── 縮圖側欄 ── */
+#thumb-sidebar{width:114px;background:#1e1e2e;border-right:1px solid #333;display:none;flex-direction:column;flex-shrink:0;overflow:hidden}
+#thumb-sidebar.visible{display:flex}
+#sidebar-list{flex:1;overflow-y:auto;padding:6px;display:flex;flex-direction:column;gap:5px}
+.sb-item{position:relative;border-radius:5px;border:2px solid transparent;background:#2a2a3e;overflow:hidden;cursor:pointer;flex-shrink:0;user-select:none}
+.sb-item:hover{border-color:#555}
+.sb-item.sb-active{border-color:#4c6ef5;background:#1a2040}
+.sb-item canvas{display:block;width:100%}
+.sb-footer{padding:2px 3px;font-size:10px;color:#666;display:flex;justify-content:space-between;align-items:center;background:#1e1e2e;gap:1px}
+.sb-num{font-size:10px;color:#666;min-width:14px}
+.sb-rot{background:none;border:none;color:#666;cursor:pointer;font-size:12px;padding:0 1px;line-height:1}
+.sb-rot:hover{color:#d4d4d8}
+.sb-del{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:0 1px;line-height:1;margin-left:1px}
+.sb-del:hover{color:#f87171}
 </style>
 </head>
 <body>
@@ -156,7 +178,6 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
     </div>
   </div>
   <div class="sep"></div>
-  <button class="btn" id="btn-pages" onclick="setMode('pages')" disabled>頁面管理</button>
   <button class="btn" id="btn-annotate" onclick="setMode('annotate')" disabled>標示標色</button>
   <button class="btn" id="btn-text" onclick="setMode('text')" disabled>文字編輯</button>
   <button class="btn" id="btn-form" onclick="setMode('form')" disabled>表單設計</button>
@@ -181,6 +202,11 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 </div>
 
 <div id="main">
+  <!-- Thumbnail Sidebar -->
+  <div id="thumb-sidebar">
+    <div id="sidebar-list"></div>
+  </div>
+
   <!-- Home -->
   <div class="panel active" id="panel-home">
     <div id="drop-zone">
@@ -191,17 +217,6 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
         <button class="btn" onclick="openFolderPicker()">選擇資料夾</button>
       </div>
     </div>
-  </div>
-
-  <!-- Pages -->
-  <div class="panel" id="panel-pages">
-    <div id="pages-header">
-      <span id="pages-count">0 頁</span>
-      <button class="btn" style="padding:3px 10px;font-size:12px" onclick="selectAll(true)">全選</button>
-      <button class="btn" style="padding:3px 10px;font-size:12px" onclick="selectAll(false)">取消全選</button>
-      <span style="font-size:12px;color:#666;margin-left:4px">拖曳縮圖可重新排序</span>
-    </div>
-    <div id="thumb-grid"></div>
   </div>
 
   <!-- Merge -->
@@ -295,6 +310,13 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
         <div id="txt-canvas-wrap">
           <canvas id="txt-canvas"></canvas>
           <div id="txt-overlay"></div>
+          <!-- 浮動工具欄和 resize handle -->
+          <div id="txt-float-toolbar">
+            <span id="txt-size-display" class="txt-size-display" title="點擊輸入精確大小">14px</span>
+            <div id="txt-float-colors" style="display:flex;gap:3px"></div>
+            <button id="txt-float-delete" onclick="deleteTxtBox()" style="background:none;border:1px solid #f87171;color:#f87171;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px">✕</button>
+          </div>
+          <div id="txt-resize-handle"></div>
         </div>
       </div>
       <!-- 選取時的屬性面板 -->
@@ -412,10 +434,11 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 <!-- Encrypt Modal -->
 <div id="encrypt-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center">
   <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:24px;min-width:320px;max-width:420px;width:100%">
-    <h3 style="margin-bottom:16px;font-size:15px">🔒 加密 PDF 後下載</h3>
+    <h3 style="margin-bottom:8px;font-size:15px">🔒 建立加密 ZIP</h3>
+    <p style="font-size:12px;color:#999;margin-bottom:16px">PDF 將被壓縮成加密 ZIP，需要密碼才能解壓</p>
     <div class="modal-field">
-      <label>開啟密碼</label>
-      <input id="enc-pwd" type="password" placeholder="使用者需輸入此密碼才能開啟" autocomplete="new-password">
+      <label>解壓密碼</label>
+      <input id="enc-pwd" type="password" placeholder="使用者需輸入此密碼才能解壓 ZIP" autocomplete="new-password">
     </div>
     <div class="modal-field">
       <label>確認密碼</label>
@@ -694,9 +717,11 @@ const S = {
   (function() {
     let spaceDown = false, panStart = null;
     document.addEventListener('keydown', e => {
-      if (e.code === 'Space' && !e.target.matches('input,textarea,[contenteditable="true"]') && !spaceDown) {
-        spaceDown = true;
-        document.body.classList.add('space-pan');
+      if (e.code === 'Space' && !e.target.matches('input,textarea,[contenteditable="true"]')) {
+        if (!spaceDown) {
+          spaceDown = true;
+          document.body.classList.add('space-pan');
+        }
         e.preventDefault();
       }
     });
@@ -894,7 +919,7 @@ function setMode(m) {
   S.mode = m;
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + m).classList.add('active');
-  ['pages','annotate','text','form','merge','split'].forEach(id => {
+  ['annotate','text','form','merge','split'].forEach(id => {
     const btn = document.getElementById('btn-' + id);
     if (btn) btn.classList.toggle('mode-active', id === m);
   });
@@ -908,52 +933,46 @@ function setMode(m) {
 
 function refreshToolbar() {
   const on = S.pages.length > 0;
-  ['btn-pages','btn-merge','btn-annotate','btn-text','btn-form','btn-out','btn-split']
+  ['btn-merge','btn-annotate','btn-text','btn-form','btn-out','btn-split']
     .forEach(id => document.getElementById(id).disabled = !on);
+  document.getElementById('thumb-sidebar').classList.toggle('visible', on);
 }
 
 // ── Thumbnails ─────────────────────────────────────────────
 function renderThumbs() {
-  const grid = document.getElementById('thumb-grid');
-  grid.innerHTML = '';
-  document.getElementById('pages-count').textContent = `共 ${S.pages.length} 頁`;
+  const list = document.getElementById('sidebar-list');
+  list.innerHTML = '';
   S.pages.forEach((pg, i) => {
     const file = S.files.find(f => f.id === pg.fid);
     const item = document.createElement('div');
-    item.className = 'thumb-item' + (pg.sel ? ' selected' : '');
+    item.className = 'sb-item';
     item.dataset.i = i;
     const cv = document.createElement('canvas');
     item.appendChild(cv);
     const foot = document.createElement('div');
-    foot.className = 'thumb-footer';
-    foot.innerHTML = `<span title="${file.name}">${file.name.slice(0,12)} p${pg.pidx+1}</span>
+    foot.className = 'sb-footer';
+    foot.innerHTML = `<span class="sb-num">${i + 1}</span>
       <span>
-        <button class="rot-btn" title="逆時針 90°" onclick="rotatePg(${i},-90,event)">↺</button>
-        <button class="rot-btn" title="順時針 90°" onclick="rotatePg(${i},90,event)">↻</button>
+        <button class="sb-rot" title="逆時針 90°" onclick="rotatePg(${i},-90,event)">↺</button>
+        <button class="sb-rot" title="順時針 90°" onclick="rotatePg(${i},90,event)">↻</button>
+        <button class="sb-del" title="刪除此頁" onclick="deletePage(${i},event)">✕</button>
       </span>`;
     item.appendChild(foot);
-    const cb = document.createElement('input');
-    cb.type = 'checkbox'; cb.className = 'thumb-check'; cb.checked = pg.sel;
-    cb.addEventListener('change', ev => {
-      ev.stopPropagation();
-      pg.sel = cb.checked;
-      item.classList.toggle('selected', pg.sel);
-    });
-    item.appendChild(cb);
     item.addEventListener('click', e => {
-      if (e.target === cb || e.target.closest('.thumb-footer')) return;
-      pg.sel = !pg.sel; cb.checked = pg.sel;
-      item.classList.toggle('selected', pg.sel);
+      if (e.target.closest('.sb-footer')) return;
+      sidebarNavTo(i);
     });
-    grid.appendChild(item);
+    list.appendChild(item);
     renderThumbCv(cv, file, pg);
   });
   if (window._sortable) _sortable.destroy();
-  window._sortable = Sortable.create(grid, {
+  window._sortable = Sortable.create(list, {
     animation: 150,
     onEnd(ev) {
       const moved = S.pages.splice(ev.oldIndex, 1)[0];
       S.pages.splice(ev.newIndex, 0, moved);
+      renderThumbs();
+      refreshPageSels();
     }
   });
 }
@@ -973,11 +992,46 @@ function rotatePg(i, deg, e) {
   if (cv && file) renderThumbCv(cv, file, pg);
 }
 
-function selectAll(v) {
-  S.pages.forEach((p, i) => {
-    p.sel = v;
-    const item = document.querySelector(`[data-i="${i}"]`);
-    if (item) { item.classList.toggle('selected', v); item.querySelector('.thumb-check').checked = v; }
+function deletePage(i, e) {
+  e.stopPropagation();
+  if (S.pages.length <= 1) { toast('至少需保留一頁'); return; }
+  const pg = S.pages.splice(i, 1)[0];
+  delete S.annots[pg.id];
+  delete S.fields[pg.id];
+  delete S.textBoxes[pg.id];
+  const usedFids = new Set(S.pages.map(p => p.fid));
+  S.files = S.files.filter(f => usedFids.has(f.id));
+  renderThumbs();
+  renderMergeList();
+  refreshPageSels();
+  refreshToolbar();
+  const m = S.mode;
+  if (m === 'annotate') renderAnnotatePage(Math.min(S.an.pidx, S.pages.length - 1));
+  else if (m === 'text') renderTextPage(Math.min(S.tx.pidx, S.pages.length - 1));
+  else if (m === 'form') renderFormPage(Math.min(S.fd.pidx, S.pages.length - 1));
+}
+
+function sidebarNavTo(i) {
+  const m = S.mode;
+  if (m === 'annotate') {
+    document.getElementById('ann-page-sel').value = i;
+    renderAnnotatePage(i);
+  } else if (m === 'text') {
+    document.getElementById('txt-page-sel').value = i;
+    renderTextPage(i);
+  } else if (m === 'form') {
+    document.getElementById('form-page-sel').value = i;
+    renderFormPage(i);
+  } else {
+    setMode('annotate');
+    document.getElementById('ann-page-sel').value = i;
+    renderAnnotatePage(i);
+  }
+}
+
+function updateSidebarActive(idx) {
+  document.querySelectorAll('.sb-item').forEach((el, i) => {
+    el.classList.toggle('sb-active', i === idx);
   });
 }
 
@@ -1212,6 +1266,7 @@ async function renderAnnotatePage(idx) {
   dc.width = vp.width; dc.height = vp.height;
   renderAnnOverlay();
   renderAnnMarkers();
+  updateSidebarActive(idx);
 }
 
 // Set annotation tool
@@ -1248,13 +1303,15 @@ function setTxtTool(tool) {
     if (btn) btn.classList.toggle('active', t === tool);
   });
   document.getElementById('txt-hint').textContent =
-    tool === 'add' ? '點擊空白處放置文字框；長按可拖移' : '點擊文字框選取；拖曳可移動';
+    tool === 'add' ? '點擊空白處放置文字框；點擊或長按可編輯/拖移' : '點擊文字框選取或編輯；拖曳可移動';
   document.querySelectorAll('.txt-box').forEach(b => {
     b.classList.toggle('txt-select-mode', tool === 'select');
-    b.contentEditable = tool === 'add' ? 'true' : 'false';
+    b.contentEditable = 'true';
   });
-  document.getElementById('txt-overlay').style.pointerEvents = tool === 'add' ? 'auto' : 'none';
+  document.getElementById('txt-overlay').style.pointerEvents = 'auto';
   if (tool === 'select') selectTxtBox(null);
+  // 初始化浮動工具欄顏色
+  initFloatToolbarColors();
 }
 
 function setTxtColor(el) {
@@ -1289,6 +1346,7 @@ async function renderTextPage(idx) {
   ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
   ov.style.pointerEvents = S.tx.tool === 'add' ? 'auto' : 'none';
   renderTxtBoxes();
+  updateSidebarActive(idx);
 }
 
 function renderTxtBoxes() {
@@ -1302,7 +1360,7 @@ function createTxtBoxEl(tb, cvH, sc) {
   const ov = document.getElementById('txt-overlay');
   const el = document.createElement('div');
   el.className = 'txt-box' + (S.tx.tool === 'select' ? ' txt-select-mode' : '');
-  el.contentEditable = S.tx.tool === 'add' ? 'true' : 'false';
+  el.contentEditable = 'true';
   el.dataset.id = tb.id;
   el.textContent = tb.text;
   el.style.left   = (tb.x * sc) + 'px';
@@ -1325,6 +1383,7 @@ function createTxtBoxEl(tb, cvH, sc) {
         tb.y = oy - (e.clientY - startY) / S.tx.scale;
         el.style.left = (tb.x * S.tx.scale) + 'px';
         el.style.top  = (cv.height - tb.y * S.tx.scale - tb.size * S.tx.scale * 1.3) + 'px';
+        positionFloatToolbar(el, tb);
       }
       function up() { document.removeEventListener('mousemove', mv); document.removeEventListener('mouseup', up); }
       document.addEventListener('mousemove', mv); document.addEventListener('mouseup', up);
@@ -1346,6 +1405,7 @@ function createTxtBoxEl(tb, cvH, sc) {
         tb.y = oy - (e.clientY - startY) / S.tx.scale;
         el.style.left = (tb.x * S.tx.scale) + 'px';
         el.style.top  = (cv.height - tb.y * S.tx.scale - tb.size * S.tx.scale * 1.3) + 'px';
+        if (S.tx.selId === tb.id) positionFloatToolbar(el, tb);
       }
       function up() {
         clearTimeout(timer);
@@ -1369,6 +1429,10 @@ function onTxtOverlayClick(e) {
   if (window._spaceDown()) return;
   if (!S.tx.pid) return;
   if (e.target.classList.contains('txt-box')) { e.target.focus(); return; }
+  if (S.tx.tool === 'select') {
+    selectTxtBox(null);
+    return;
+  }
   if (S.tx.tool !== 'add') return;
   const wrap = document.getElementById('txt-canvas-wrap');
   const r = wrap.getBoundingClientRect();
@@ -1387,7 +1451,7 @@ function selectTxtBox(tbId) {
   S.tx.selId = tbId;
   document.querySelectorAll('.txt-box').forEach(el => { el.dataset.sel = el.dataset.id === tbId ? '1' : ''; });
   const propsEl = document.getElementById('txt-props');
-  if (!tbId) { propsEl.style.display = 'none'; return; }
+  if (!tbId) { propsEl.style.display = 'none'; document.getElementById('txt-float-toolbar').classList.remove('show'); document.getElementById('txt-resize-handle').classList.remove('show'); return; }
   propsEl.style.display = '';
   const tb = (S.textBoxes[S.tx.pid] || []).find(t => t.id === tbId);
   if (!tb) return;
@@ -1395,6 +1459,153 @@ function selectTxtBox(tbId) {
   document.getElementById('txt-prop-size').value = tb.size;
   document.getElementById('txt-prop-bg').value = tb.bgColor || '#ffff00';
   document.getElementById('txt-prop-bg-on').checked = !!tb.hasBg;
+  // 更新並定位浮動工具欄
+  const el = document.querySelector('.txt-box[data-id="' + tbId + '"]');
+  if (el) positionFloatToolbar(el, tb);
+}
+
+function positionFloatToolbar(el, tb) {
+  const ft = document.getElementById('txt-float-toolbar');
+  const rh = document.getElementById('txt-resize-handle');
+  if (!el || !tb) { ft.classList.remove('show'); rh.classList.remove('show'); return; }
+
+  const elLeft  = parseInt(el.style.left) || 0;
+  const elTop   = parseInt(el.style.top) || 0;
+  const elW     = el.offsetWidth;
+  const elH     = el.offsetHeight;
+
+  // 工具欄放在文字框上方 8px
+  ft.classList.add('show');
+  ft.style.left = elLeft + 'px';
+  ft.style.top  = (elTop - 40) + 'px';
+
+  // 更新工具欄數字
+  document.getElementById('txt-size-display').textContent = Math.round(tb.size) + 'px';
+
+  // 右下角拖動點
+  rh.classList.add('show');
+  rh.style.left = (elLeft + elW - 6) + 'px';
+  rh.style.top  = (elTop  + elH - 6) + 'px';
+
+  // 初始化事件監聽器
+  initFloatToolbarEvents();
+}
+
+function initFloatToolbarColors() {
+  const colors = ['#000000', '#ffffff', '#e03131', '#1971c2', '#2f9e44', '#f59f00'];
+  const names = ['黑', '白', '紅', '藍', '綠', '黃'];
+  const colorsDiv = document.getElementById('txt-float-colors');
+  colorsDiv.innerHTML = '';
+  colors.forEach((c, i) => {
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch';
+    sw.style.background = c;
+    sw.style.borderColor = 'transparent';
+    sw.title = names[i];
+    sw.style.width = '18px'; sw.style.height = '18px'; sw.style.borderRadius = '3px'; sw.style.cursor = 'pointer';
+    sw.onclick = () => setTxtSelColor(c);
+    colorsDiv.appendChild(sw);
+  });
+}
+
+function setTxtSelColor(color) {
+  const tb = S.textBoxes[S.tx.pid]?.find(t => t.id === S.tx.selId);
+  if (!tb) return;
+  tb.color = color;
+  const el = document.querySelector('.txt-box[data-id="' + tb.id + '"]');
+  if (el) el.style.color = color;
+  document.getElementById('txt-prop-color').value = color;
+}
+
+function initFloatToolbarEvents() {
+  const rh = document.getElementById('txt-resize-handle');
+  if (!rh._resizeListenerAttached) {
+    rh._resizeListenerAttached = true;
+    rh.addEventListener('mousedown', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tb = S.textBoxes[S.tx.pid]?.find(t => t.id === S.tx.selId);
+      if (!tb) return;
+      const startY = e.clientY;
+      const startSize = tb.size;
+      const el = document.querySelector('.txt-box[data-id="' + tb.id + '"]');
+      const cv = document.getElementById('txt-canvas');
+
+      function mv(e) {
+        const delta = (startY - e.clientY) / S.tx.scale;
+        const newSize = Math.max(6, Math.min(120, startSize + delta));
+        tb.size = newSize;
+        el.style.fontSize = (newSize * S.tx.scale) + 'px';
+        el.style.top = (cv.height - tb.y * S.tx.scale - newSize * S.tx.scale * 1.3) + 'px';
+        document.getElementById('txt-size-display').textContent = Math.round(newSize) + 'px';
+        positionFloatToolbar(el, tb);
+      }
+      function up() {
+        document.removeEventListener('mousemove', mv);
+        document.removeEventListener('mouseup', up);
+        document.getElementById('txt-prop-size').value = Math.round(tb.size);
+      }
+      document.addEventListener('mousemove', mv);
+      document.addEventListener('mouseup', up);
+    });
+  }
+
+  // 使用 event delegation 在工具欄上處理 size display 點擊
+  const ft = document.getElementById('txt-float-toolbar');
+  if (!ft._sizeClickListenerAttached) {
+    ft._sizeClickListenerAttached = true;
+    ft.addEventListener('click', e => {
+      if (e.target.id === 'txt-size-display' || e.target.parentElement?.id === 'txt-size-display') {
+        handleSizeDisplayClick(e);
+      }
+    });
+  }
+}
+
+function handleSizeDisplayClick(e) {
+  e.stopPropagation();
+  const tb = S.textBoxes[S.tx.pid]?.find(t => t.id === S.tx.selId);
+  if (!tb) return;
+
+  const display = document.getElementById('txt-size-display');
+  const input = document.createElement('input');
+  input.type = 'number';
+  input.min = '6';
+  input.max = '120';
+  input.value = Math.round(tb.size);
+  input.style.cssText = 'width:50px;background:#0f0f1a;color:#d4d4d8;border:1px solid #4c6ef5;border-radius:3px;padding:1px 4px;font-size:12px';
+
+  display.replaceWith(input);
+  input.focus();
+  input.select();
+
+  function commit() {
+    const v = Math.max(6, Math.min(120, +input.value || tb.size));
+    updTxtProp('size', v);
+
+    const newDisplay = document.createElement('span');
+    newDisplay.id = 'txt-size-display';
+    newDisplay.className = 'txt-size-display';
+    newDisplay.title = '點擊輸入精確大小';
+    newDisplay.textContent = Math.round(v) + 'px';
+    input.replaceWith(newDisplay);
+
+    const el = document.querySelector('.txt-box[data-id="' + tb.id + '"]');
+    if (el) positionFloatToolbar(el, tb);
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') commit();
+    if (e.key === 'Escape') {
+      const newDisplay = document.createElement('span');
+      newDisplay.id = 'txt-size-display';
+      newDisplay.className = 'txt-size-display';
+      newDisplay.title = '點擊輸入精確大小';
+      newDisplay.textContent = Math.round(tb.size) + 'px';
+      input.replaceWith(newDisplay);
+    }
+  });
 }
 
 function updTxtProp(key, val) {
@@ -1725,6 +1936,7 @@ async function renderFormPage(idx) {
   const ov = document.getElementById('form-overlay');
   ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
   renderFieldBoxes();
+  updateSidebarActive(idx);
 }
 
 function toggleDraw() {
@@ -1989,9 +2201,11 @@ async function doExport(toFolder, userPassword) {
       // Text annotations（用 canvas 截圖避免中文字體問題）
       const textAnnots = annots.filter(a => a.type === 'text');
       if (textAnnots.length) {
+        const DPI = 2; // 2x 解析度避免文字模糊
         const tmp = document.createElement('canvas');
-        tmp.width = Math.round(pgW); tmp.height = Math.round(pgH);
+        tmp.width = Math.round(pgW * DPI); tmp.height = Math.round(pgH * DPI);
         const ctx = tmp.getContext('2d');
+        ctx.scale(DPI, DPI);
         for (const a of textAnnots) {
           ctx.save();
           ctx.fillStyle = a.color;
@@ -2010,9 +2224,11 @@ async function doExport(toFolder, userPassword) {
       // TextBoxes（文字編輯面板新增的文字框）
       const textBoxElems = S.textBoxes[pg.id] || [];
       if (textBoxElems.length) {
+        const DPI = 2; // 2x 解析度避免文字模糊
         const tmpTb = document.createElement('canvas');
-        tmpTb.width = Math.round(pgW); tmpTb.height = Math.round(pgH);
+        tmpTb.width = Math.round(pgW * DPI); tmpTb.height = Math.round(pgH * DPI);
         const ctxTb = tmpTb.getContext('2d');
+        ctxTb.scale(DPI, DPI);
         for (const tb of textBoxElems) {
           ctxTb.save();
           if (tb.hasBg) {
@@ -2044,15 +2260,37 @@ async function doExport(toFolder, userPassword) {
       }
     }
 
-    // 加密輸出
-    const rawBytes = await doc.save();
-    let finalBytes = rawBytes;
-    if (userPassword) {
-      try { finalBytes = _encryptPdf(rawBytes, userPassword); }
-      catch(encErr) { console.error('加密失敗，改用未加密輸出:', encErr); toast('加密失敗，改用未加密輸出'); }
+    // 輸出為 PDF 或加密 ZIP
+    const pdfBytes = await doc.save();
+
+    // 輸出為 ZIP（內含 PDF）
+    try {
+      const zip = new JSZip();
+      zip.file('output.pdf', new Blob([pdfBytes], { type: 'application/pdf' }));
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipArrayBuffer = await zipBlob.arrayBuffer();
+      const zipBytes = new Uint8Array(zipArrayBuffer);
+
+      if (userPassword) {
+        // 若需要密碼保護，改用 decrypt.html 工具
+        // 先儲存普通 ZIP 供解密工具使用
+
+        // 用密碼加密 ZIP（存為 .encrypted 檔案供解密工具使用）
+        const zipHex = Array.from(zipBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        const encryptedZip = CryptoJS.AES.encrypt(zipHex, userPassword).toString();
+        const encBytes = new TextEncoder().encode(encryptedZip);
+
+        await saveOutput(encBytes, 'output.zip.encrypted', toFolder);
+        toast('✅ 已建立密碼保護 ZIP\n用 decrypt.html 解密');
+      } else {
+        await saveOutput(zipBytes, 'output.zip', toFolder);
+      }
     }
-    await saveOutput(finalBytes, 'output.pdf', toFolder);
-    if (userPassword) toast('已加密並下載 output.pdf');
+    catch (err) {
+      console.error('ZIP 建立失敗:', err);
+      toast('⚠️ 錯誤：' + err.message);
+      await saveOutput(pdfBytes, 'output.pdf', toFolder);
+    }
   } catch (e) { toast('輸出失敗：' + e.message); console.error(e); }
 }
 
@@ -2080,7 +2318,12 @@ async function saveOutput(bytes, filename, toFolder) {
 }
 
 function downloadBytes(bytes, filename) {
-  const blob = new Blob([bytes], { type: 'application/pdf' });
+  // 根據副檔名選擇正確的 MIME 類型
+  let mimeType = 'application/octet-stream';
+  if (filename.endsWith('.pdf')) mimeType = 'application/pdf';
+  else if (filename.endsWith('.zip') || filename.endsWith('.zip.encrypted')) mimeType = 'application/zip';
+
+  const blob = new Blob([bytes], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = filename; a.click();

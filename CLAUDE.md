@@ -29,6 +29,7 @@ node build-offline.js
 | mammoth.js | 1.8.0 | Word (.docx) 轉 HTML |
 | html2canvas | 1.4.1 | HTML 截圖轉 canvas |
 | jsPDF | 2.5.1 | canvas 轉 PDF |
+| zip.js | 2.7.32 | 建立密碼保護的 ZIP |
 
 ## 現有功能
 - **頁面管理**：縮圖預覽、拖曳重排、旋轉、勾選
