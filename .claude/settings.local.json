@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:antigravity.google)"
+      "WebFetch(domain:antigravity.google)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(jq -e '.hooks.PreToolUse[] | select\\(.matcher == \"\"Bash\"\"\\) | .hooks[] | select\\(.type == \"\"prompt\"\"\\) | .prompt' \"C:\\\\Users\\\\HW101\\\\Projects\\\\pdf-editor\\\\.claude\\\\settings.json\")"
     ]
   }
 }
