@@ -12,6 +12,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", ".", "-p", "8081", "--no-clipboard"],
       "port": 8081
+    },
+    {
+      "name": "Build Offline Version",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["build-offline.js"],
+      "port": null
     }
   ]
 }
