@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
 <meta charset="UTF-8">
@@ -881,7 +881,7 @@ async function processFiles(files) {
   }
   if (added) {
     refreshToolbar();
-    setMode('pages');
+    // setMode('pages'); // 取消自動跳轉「頁面管理」分頁
     renderThumbs();
     renderMergeList();
     refreshPageSels();
@@ -1217,7 +1217,7 @@ async function renderAnnotatePage(idx) {
 // Set annotation tool
 function setAnnTool(tool) {
   S.an.tool = tool;
-  ['text','pen','marker','rect','ellipse','eraser'].forEach(t => {
+  ['pen','marker','rect','ellipse','eraser'].forEach(t => {
     document.getElementById('ann-tool-' + t).classList.toggle('active', t === tool);
   });
   // 顯示/隱藏底色透明度（rect/ellipse）
