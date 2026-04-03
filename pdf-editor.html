@@ -81,8 +81,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #ann-float-panel .fp-slider{width:100%;accent-color:#4c6ef5;cursor:pointer}
 #ann-float-panel .fp-val{font-size:12px;color:#d4d4d8;min-width:32px;text-align:right}
 #ann-float-panel .fp-sep{height:1px;background:#333;margin:2px 0}
-/* Size label while drawing rect/ellipse */
-#ann-size-label{position:absolute;background:rgba(0,0,0,.7);color:#fff;font-size:11px;padding:2px 6px;border-radius:4px;pointer-events:none;display:none;white-space:nowrap;z-index:20}
+/* Selection handles */
+.ann-handle{position:absolute;width:8px;height:8px;background:#fff;border:2px solid #4c6ef5;border-radius:2px;cursor:nwse-resize;pointer-events:none}
 /* Ann tool buttons */
 .ann-tool-btn{padding:5px 10px;border-radius:5px;border:1px solid #555;background:#2a2a3e;color:#d4d4d8;cursor:pointer;font-size:12px}
 .ann-tool-btn.active{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
@@ -262,6 +262,8 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
       <div class="sep"></div>
       <!-- Tool selector -->
+      <button class="ann-tool-btn" id="ann-tool-select" onclick="setAnnTool('select')">↖ 選取</button>
+      <div class="sep"></div>
       <button class="ann-tool-btn active" id="ann-tool-pen" onclick="setAnnTool('pen')">簽字筆</button>
       <button class="ann-tool-btn" id="ann-tool-marker" onclick="setAnnTool('marker')">螢光筆</button>
       <button class="ann-tool-btn" id="ann-tool-rect" onclick="setAnnTool('rect')">矩形</button>
@@ -276,7 +278,6 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <div id="ann-canvas-wrap">
         <canvas id="ann-canvas"></canvas>
         <canvas id="ann-draw-canvas"></canvas>
-        <div id="ann-size-label"></div>
       </div>
       <!-- Floating properties panel -->
       <div id="ann-float-panel">
@@ -311,7 +312,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
         <div id="ann-fp-fill-row">
           <div class="fp-label">底色透明度</div>
           <div class="fp-row">
-            <input type="range" class="fp-slider" id="ann-fp-fill" min="0" max="100" value="0" oninput="S.an.fillOpacity=+this.value;document.getElementById('ann-fp-fill-val').textContent=this.value+'%'">
+            <input type="range" class="fp-slider" id="ann-fp-fill" min="0" max="100" value="0" oninput="updateAnnFillOpacity(+this.value)">
             <span class="fp-val" id="ann-fp-fill-val">0%</span>
           </div>
         </div>
@@ -709,7 +710,7 @@ const S = {
         drawing: false, ds: null },
   an: {
     pidx: 0, pid: null, scale: 1.5,
-    tool: 'pen',           // 'pen'|'marker'|'rect'|'ellipse'|'eraser'
+    tool: 'pen',           // 'select'|'pen'|'marker'|'rect'|'ellipse'|'eraser'
     color: '#000000',
     strokeOpacity: 100,    // 0–100
     fillOpacity: 0,        // 0–100 (rect/ellipse only)
@@ -717,6 +718,9 @@ const S = {
     drawing: false,
     drawStart: null,
     currentPoints: [],
+    selId: null,           // selected annotation id
+    dragMode: null,        // null | 'move' | 'tl'|'tr'|'bl'|'br'
+    dragStart: null,       // {x, y, snap}
   },
   split: { segments: [] },
   textBoxes: {},  // pageId → [{id, x, y, text, size, color, bgColor, hasBg}]
@@ -832,6 +836,12 @@ const S = {
   // Delete key
   document.addEventListener('keydown', e => {
     if (e.key === 'Delete' && S.mode === 'form' && S.fd.selId) deleteSelField();
+    if (e.key === 'Delete' && S.mode === 'annotate' && S.an.tool === 'select' && S.an.selId) {
+      const pid = S.an.pid;
+      S.annots[pid] = (S.annots[pid] || []).filter(a => a.id !== S.an.selId);
+      S.an.selId = null; S.an.dragMode = null;
+      renderAnnOverlay();
+    }
   });
 
   // Modal Enter/Esc
@@ -1416,6 +1426,7 @@ function refreshPageSels() {
 
 async function renderAnnotatePage(idx) {
   if (!S.pages[idx]) return;
+  S.an.selId = null; S.an.dragMode = null; // clear selection on page change
   S.an.pidx = idx;
   const pg = S.pages[idx]; S.an.pid = pg.id;
   const file = S.files.find(f => f.id === pg.fid);
@@ -1432,28 +1443,98 @@ async function renderAnnotatePage(idx) {
   updateSidebarActive(idx);
 }
 
+// ── Annotation Select helpers ──────────────────────────────
+const ANN_HANDLE = 6; // handle half-size px
+const ANN_HIT_PAD = 10; // click hit padding px
+
+function getAnnotBBox(a, sc, cvH) {
+  // Returns {left, top, w, h} in canvas coords
+  if (a.type === 'rect') {
+    return { left: a.x * sc, top: cvH - (a.y + a.h) * sc, w: a.w * sc, h: a.h * sc };
+  } else if (a.type === 'ellipse') {
+    return { left: (a.cx - a.rx) * sc, top: cvH - (a.cy + a.ry) * sc, w: 2 * a.rx * sc, h: 2 * a.ry * sc };
+  } else if ((a.type === 'pen' || a.type === 'marker') && a.points?.length) {
+    const xs = a.points.map(p => p.x * sc);
+    const ys = a.points.map(p => cvH - p.y * sc);
+    const left = Math.min(...xs), top = Math.min(...ys);
+    return { left, top, w: Math.max(...xs) - left, h: Math.max(...ys) - top };
+  }
+  return null;
+}
+
+function getResizeHandles(bb) {
+  // 4 corner handles
+  return [
+    { id: 'tl', cx: bb.left,        cy: bb.top },
+    { id: 'tr', cx: bb.left + bb.w, cy: bb.top },
+    { id: 'bl', cx: bb.left,        cy: bb.top + bb.h },
+    { id: 'br', cx: bb.left + bb.w, cy: bb.top + bb.h },
+  ];
+}
+
+function hitHandle(handles, px, py) {
+  for (const h of handles) {
+    if (Math.abs(px - h.cx) <= ANN_HANDLE + 2 && Math.abs(py - h.cy) <= ANN_HANDLE + 2) return h.id;
+  }
+  return null;
+}
+
+function hitTestAnnot(a, px, py, sc, cvH) {
+  const bb = getAnnotBBox(a, sc, cvH);
+  if (!bb) return false;
+  return px >= bb.left - ANN_HIT_PAD && px <= bb.left + bb.w + ANN_HIT_PAD &&
+         py >= bb.top  - ANN_HIT_PAD && py <= bb.top  + bb.h + ANN_HIT_PAD;
+}
+
+function syncFloatPanelToSel(a) {
+  if (!a) return;
+  S.an.color = a.color;
+  document.getElementById('ann-color-preview').style.background = a.color;
+  document.querySelectorAll('.ann-color-swatch').forEach(s => s.classList.toggle('active', s.dataset.color === a.color));
+  const op = a.strokeOpacity ?? 100;
+  S.an.strokeOpacity = op;
+  document.getElementById('ann-fp-opacity').value = op;
+  document.getElementById('ann-fp-opacity-val').textContent = op + '%';
+  const sw = a.strokeWidth ?? a.width ?? 2;
+  S.an.strokeWidth = sw;
+  document.getElementById('ann-fp-width').value = sw;
+  document.getElementById('ann-fp-width-val').textContent = sw;
+  const fo = a.fillOpacity ?? 0;
+  S.an.fillOpacity = fo;
+  document.getElementById('ann-fp-fill').value = fo;
+  document.getElementById('ann-fp-fill-val').textContent = fo + '%';
+  document.getElementById('ann-fp-fill-row').style.display =
+    (a.type === 'rect' || a.type === 'ellipse') ? '' : 'none';
+}
+
+function updateAnnFillOpacity(v) {
+  S.an.fillOpacity = v;
+  document.getElementById('ann-fp-fill-val').textContent = v + '%';
+  if (S.an.selId) {
+    const a = (S.annots[S.an.pid] || []).find(a => a.id === S.an.selId);
+    if (a) { a.fillOpacity = v; renderAnnOverlay(); }
+  }
+}
+
 // Set annotation tool
 function setAnnTool(tool) {
   S.an.tool = tool;
-  ['pen','marker','rect','ellipse','eraser'].forEach(t => {
-    document.getElementById('ann-tool-' + t).classList.toggle('active', t === tool);
+  // 切換工具時清除選取
+  if (tool !== 'select') { S.an.selId = null; S.an.dragMode = null; }
+  ['select','pen','marker','rect','ellipse','eraser'].forEach(t => {
+    const btn = document.getElementById('ann-tool-' + t);
+    if (btn) btn.classList.toggle('active', t === tool);
   });
   const hasArea = tool === 'rect' || tool === 'ellipse';
-  // 顯示/隱藏懸浮面板與底色列
   const fp = document.getElementById('ann-float-panel');
   fp.classList.toggle('show', tool !== 'eraser');
-  document.getElementById('ann-fp-fill-row').style.display = hasArea ? '' : 'none';
-  // 更新游標
-  document.getElementById('ann-draw-canvas').style.cursor = tool === 'eraser' ? 'cell' : 'crosshair';
-  // 更新提示
-  const hints = { pen:'按住拖曳繪製', marker:'按住拖曳塗抹', rect:'拖曳畫矩形', ellipse:'拖曳畫橢圓', eraser:'點擊或拖曳刪除' };
+  if (tool !== 'select') document.getElementById('ann-fp-fill-row').style.display = hasArea ? '' : 'none';
+  const cursors = { select: 'default', eraser: 'cell' };
+  document.getElementById('ann-draw-canvas').style.cursor = cursors[tool] || 'crosshair';
+  const hints = { select:'點擊選取標示；Delete 刪除', pen:'按住拖曳繪製', marker:'按住拖曳塗抹', rect:'拖曳畫矩形', ellipse:'拖曳畫橢圓', eraser:'點擊或拖曳刪除' };
   document.getElementById('ann-hint').textContent = hints[tool] || '';
-  // marker 粗細預設 12，其餘用目前設定
-  if (tool === 'marker') {
-    document.getElementById('ann-fp-width').value = 12;
-    document.getElementById('ann-fp-width-val').textContent = 12;
-    S.an.strokeWidth = 12;
-  }
+  if (tool === 'marker') { document.getElementById('ann-fp-width').value = 12; document.getElementById('ann-fp-width-val').textContent = 12; S.an.strokeWidth = 12; }
+  renderAnnOverlay();
 }
 
 function setAnnColor(el) {
@@ -1461,16 +1542,28 @@ function setAnnColor(el) {
   document.querySelectorAll('.ann-color-swatch').forEach(s => s.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('ann-color-preview').style.background = el.dataset.color;
+  if (S.an.selId) {
+    const a = (S.annots[S.an.pid] || []).find(a => a.id === S.an.selId);
+    if (a) { a.color = el.dataset.color; renderAnnOverlay(); }
+  }
 }
 
 function setAnnWidth(v) {
   S.an.strokeWidth = v;
   document.getElementById('ann-fp-width-val').textContent = v;
+  if (S.an.selId) {
+    const a = (S.annots[S.an.pid] || []).find(a => a.id === S.an.selId);
+    if (a) { a.strokeWidth = v; a.width = v; renderAnnOverlay(); }
+  }
 }
 
 function setAnnOpacity(v) {
   S.an.strokeOpacity = v;
   document.getElementById('ann-fp-opacity-val').textContent = v + '%';
+  if (S.an.selId) {
+    const a = (S.annots[S.an.pid] || []).find(a => a.id === S.an.selId);
+    if (a) { a.strokeOpacity = v; renderAnnOverlay(); }
+  }
 }
 
 
@@ -1849,43 +1942,145 @@ function onDrawClick(e) {
 
 function onDrawStart(e) {
   if (window._spaceDown()) return;
-  if (S.an.tool === 'text') return;
   if (e.button !== 0) return;
+
+  // ── Select mode ────────────────────────────────────────────
+  if (S.an.tool === 'select') {
+    const p = dcPos(e);
+    const sc = S.an.scale;
+    const cvH = document.getElementById('ann-canvas').height;
+    const annots = S.annots[S.an.pid] || [];
+
+    // 1. check resize handle on currently selected annotation
+    if (S.an.selId) {
+      const sel = annots.find(a => a.id === S.an.selId);
+      if (sel && (sel.type === 'rect' || sel.type === 'ellipse')) {
+        const bb = getAnnotBBox(sel, sc, cvH);
+        if (bb) {
+          const hh = getResizeHandles({ left: bb.left - 4, top: bb.top - 4, w: bb.w + 8, h: bb.h + 8 });
+          const hit = hitHandle(hh, p.x, p.y);
+          if (hit) {
+            S.an.dragMode = hit;
+            S.an.dragStart = { x: p.x, y: p.y, snap: JSON.parse(JSON.stringify(sel)) };
+            return;
+          }
+        }
+      }
+    }
+
+    // 2. hit-test all annotations (last = top)
+    let found = null;
+    for (let i = annots.length - 1; i >= 0; i--) {
+      if (hitTestAnnot(annots[i], p.x, p.y, sc, cvH)) { found = annots[i]; break; }
+    }
+    if (found) {
+      // Ensure id exists (backward compat)
+      if (!found.id) found.id = uid();
+      S.an.selId = found.id;
+      S.an.dragMode = 'move';
+      S.an.dragStart = { x: p.x, y: p.y, snap: JSON.parse(JSON.stringify(found)) };
+      syncFloatPanelToSel(found);
+    } else {
+      S.an.selId = null;
+      S.an.dragMode = null;
+    }
+    renderAnnOverlay();
+    return;
+  }
+
+  if (S.an.tool === 'text') return;
   S.an.drawing = true;
   const p = dcPos(e);
   S.an.drawStart = p;
   S.an.currentPoints = [p];
-  // 橡皮擦：mousedown 立即先嘗試删除
   if (S.an.tool === 'eraser') { eraseAt(p); return; }
 }
 
 function onDrawMove(e) {
+  // ── Select mode drag / hover ───────────────────────────────
+  if (S.an.tool === 'select') {
+    const p = dcPos(e);
+    const sc = S.an.scale;
+    const cvH = document.getElementById('ann-canvas').height;
+    const dc = document.getElementById('ann-draw-canvas');
+    const annots = S.annots[S.an.pid] || [];
+
+    if (S.an.dragMode && S.an.selId) {
+      const idx = annots.findIndex(a => a.id === S.an.selId);
+      if (idx !== -1) {
+        const a = annots[idx];
+        const snap = S.an.dragStart.snap;
+        const dx = p.x - S.an.dragStart.x;
+        const dy = p.y - S.an.dragStart.y;
+        const dxP = dx / sc, dyP = -dy / sc; // PDF coords: Y up
+
+        if (S.an.dragMode === 'move') {
+          if (a.type === 'rect')   { a.x = snap.x + dxP; a.y = snap.y + dyP; }
+          else if (a.type === 'ellipse') { a.cx = snap.cx + dxP; a.cy = snap.cy + dyP; }
+          else if (a.type === 'pen' || a.type === 'marker') {
+            a.points = snap.points.map(pt => ({ x: pt.x + dxP, y: pt.y + dyP }));
+          }
+        } else {
+          // Resize corner handle (rect / ellipse only)
+          const curX = p.x / sc, curY = (cvH - p.y) / sc;
+          if (a.type === 'rect') {
+            const r = { l: snap.x, b: snap.y, r: snap.x + snap.w, t: snap.y + snap.h };
+            if (S.an.dragMode === 'tl') { r.l = curX; r.t = curY; }
+            else if (S.an.dragMode === 'tr') { r.r = curX; r.t = curY; }
+            else if (S.an.dragMode === 'bl') { r.l = curX; r.b = curY; }
+            else if (S.an.dragMode === 'br') { r.r = curX; r.b = curY; }
+            a.x = Math.min(r.l, r.r); a.y = Math.min(r.b, r.t);
+            a.w = Math.abs(r.r - r.l); a.h = Math.abs(r.t - r.b);
+          } else if (a.type === 'ellipse') {
+            const r = { l: snap.cx - snap.rx, b: snap.cy - snap.ry, r: snap.cx + snap.rx, t: snap.cy + snap.ry };
+            if (S.an.dragMode === 'tl') { r.l = curX; r.t = curY; }
+            else if (S.an.dragMode === 'tr') { r.r = curX; r.t = curY; }
+            else if (S.an.dragMode === 'bl') { r.l = curX; r.b = curY; }
+            else if (S.an.dragMode === 'br') { r.r = curX; r.b = curY; }
+            a.cx = (r.l + r.r) / 2; a.cy = (r.b + r.t) / 2;
+            a.rx = Math.abs(r.r - r.l) / 2; a.ry = Math.abs(r.t - r.b) / 2;
+          }
+        }
+        renderAnnOverlay();
+      }
+      return;
+    }
+
+    // Hover cursor update
+    if (S.an.selId) {
+      const sel = annots.find(a => a.id === S.an.selId);
+      if (sel && (sel.type === 'rect' || sel.type === 'ellipse')) {
+        const bb = getAnnotBBox(sel, sc, cvH);
+        if (bb) {
+          const hh = getResizeHandles({ left: bb.left - 4, top: bb.top - 4, w: bb.w + 8, h: bb.h + 8 });
+          const hit = hitHandle(hh, p.x, p.y);
+          if (hit) {
+            dc.style.cursor = (hit === 'tl' || hit === 'br') ? 'nwse-resize' : 'nesw-resize';
+            return;
+          }
+        }
+      }
+      if (sel && hitTestAnnot(sel, p.x, p.y, sc, cvH)) { dc.style.cursor = 'move'; return; }
+    }
+    const hovered = annots.some(a => hitTestAnnot(a, p.x, p.y, sc, cvH));
+    dc.style.cursor = hovered ? 'move' : 'default';
+    return;
+  }
+
   if (!S.an.drawing || S.an.tool === 'text') return;
   const p = dcPos(e);
   if (S.an.tool === 'eraser') { eraseAt(p); return; }
   if (S.an.tool === 'pen' || S.an.tool === 'marker') {
     S.an.currentPoints.push(p);
   }
-  // 動態尺寸標籤（rect/ellipse）
-  if (S.an.tool === 'rect' || S.an.tool === 'ellipse') {
-    const s = S.an.drawStart;
-    const sc = S.an.scale;
-    const wPt = Math.round(Math.abs(p.x - s.x) / sc);
-    const hPt = Math.round(Math.abs(p.y - s.y) / sc);
-    const lbl = document.getElementById('ann-size-label');
-    lbl.textContent = `${wPt} × ${hPt} pt`;
-    lbl.style.display = 'block';
-    // 跟著滑鼠，偏移避免遮住游標
-    lbl.style.left = (p.x + 10) + 'px';
-    lbl.style.top  = (p.y + 10) + 'px';
-  }
   renderAnnOverlay(true);
 }
 
 function onDrawEnd(e) {
+  // Select mode drag end
+  if (S.an.tool === 'select') { S.an.dragMode = null; return; }
   if (!S.an.drawing || S.an.tool === 'text') return;
   S.an.drawing = false;
-  document.getElementById('ann-size-label').style.display = 'none';
   if (S.an.tool === 'eraser') return;
   const p = dcPos(e);
   const start = S.an.drawStart;
@@ -1898,11 +2093,11 @@ function onDrawEnd(e) {
     if (pts.length < 2) { S.an.currentPoints = []; renderAnnOverlay(); return; }
     const pdfPoints = pts.map(pt => ({ x: pt.x / sc, y: (cvH - pt.y) / sc }));
     S.annots[S.an.pid].push({
-      type: S.an.tool,
+      id: uid(), type: S.an.tool,
       points: pdfPoints,
       color: S.an.color,
       strokeOpacity: S.an.strokeOpacity,
-      width: S.an.strokeWidth
+      width: S.an.strokeWidth, strokeWidth: S.an.strokeWidth
     });
   } else if (S.an.tool === 'rect' || S.an.tool === 'ellipse') {
     const dx = Math.abs(p.x - start.x), dy = Math.abs(p.y - start.y);
@@ -1911,7 +2106,7 @@ function onDrawEnd(e) {
     const w = dx, h = dy;
     if (S.an.tool === 'rect') {
       S.annots[S.an.pid].push({
-        type: 'rect',
+        id: uid(), type: 'rect',
         x: left / sc, y: (cvH - top - h) / sc,
         w: w / sc, h: h / sc,
         color: S.an.color,
@@ -1921,7 +2116,7 @@ function onDrawEnd(e) {
       });
     } else {
       S.annots[S.an.pid].push({
-        type: 'ellipse',
+        id: uid(), type: 'ellipse',
         cx: (left + w / 2) / sc,
         cy: (cvH - (top + h / 2)) / sc,
         rx: w / 2 / sc, ry: h / 2 / sc,
@@ -2002,6 +2197,34 @@ function renderAnnOverlay(showInProgress) {
     ctx.textBaseline = 'bottom';
     ctx.fillText(tb.text, tb.x * sc, cvH - tb.y * sc);
     ctx.restore();
+  }
+
+  // 選取框與控制點
+  if (S.an.selId) {
+    const sel = (S.annots[S.an.pid] || []).find(a => a.id === S.an.selId);
+    if (sel) {
+      const bb = getAnnotBBox(sel, sc, cvH);
+      if (bb) {
+        ctx.save();
+        ctx.strokeStyle = '#4c6ef5';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 3]);
+        ctx.strokeRect(bb.left - 4, bb.top - 4, bb.w + 8, bb.h + 8);
+        ctx.setLineDash([]);
+        // 4 角控制點（rect/ellipse 才有）
+        if (sel.type === 'rect' || sel.type === 'ellipse') {
+          const hh = getResizeHandles({ left: bb.left - 4, top: bb.top - 4, w: bb.w + 8, h: bb.h + 8 });
+          for (const h of hh) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(h.cx - ANN_HANDLE, h.cy - ANN_HANDLE, ANN_HANDLE * 2, ANN_HANDLE * 2);
+            ctx.strokeStyle = '#4c6ef5';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(h.cx - ANN_HANDLE, h.cy - ANN_HANDLE, ANN_HANDLE * 2, ANN_HANDLE * 2);
+          }
+        }
+        ctx.restore();
+      }
+    }
   }
 }
 
