@@ -1659,13 +1659,14 @@ function initFloatToolbarEvents() {
       e.stopPropagation();
       const tb = S.textBoxes[S.tx.pid]?.find(t => t.id === S.tx.selId);
       if (!tb) return;
+      const startX = e.clientX;
       const startY = e.clientY;
       const startSize = tb.size;
       const el = document.querySelector('.txt-box[data-id="' + tb.id + '"]');
       const cv = document.getElementById('txt-canvas');
 
       function mv(e) {
-        const delta = (startY - e.clientY) / S.tx.scale;
+        const delta = ((e.clientX - startX) + (e.clientY - startY)) / 2 / S.tx.scale;
         const newSize = Math.max(6, Math.min(120, startSize + delta));
         tb.size = newSize;
         el.style.fontSize = (newSize * S.tx.scale) + 'px';
