@@ -1942,6 +1942,21 @@ function renderAnnOverlay(showInProgress) {
     }
     ctx.restore();
   }
+
+  // 繪製文字框（文字編輯模式新增的文字，在標示模式下顯示為唯讀預覽）
+  for (const tb of (S.textBoxes[S.an.pid] || [])) {
+    ctx.save();
+    if (tb.hasBg) {
+      ctx.fillStyle = tb.bgColor || '#ffffff';
+      ctx.fillRect(tb.x * sc, cvH - tb.y * sc - tb.size * sc * 1.3, tb.text.length * tb.size * sc * 0.6 + 8, tb.size * sc * 1.5);
+    }
+    ctx.fillStyle = tb.color;
+    ctx.font = `${tb.size * sc}px sans-serif`;
+    ctx.letterSpacing = (tb.letterSpacing || 0) * sc + 'px';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(tb.text, tb.x * sc, cvH - tb.y * sc);
+    ctx.restore();
+  }
 }
 
 function drawAnnShape(ctx, a, sc, cvH, forExport) {
