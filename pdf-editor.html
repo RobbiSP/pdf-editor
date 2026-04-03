@@ -243,7 +243,9 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
     <div id="ann-toolbar">
       <!-- Page selector -->
       <label style="font-size:13px">頁面：</label>
-      <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value)"></select>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
+      <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value);updateNavBtns()"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
       <div class="sep"></div>
 
       <!-- Tool selector -->
@@ -293,7 +295,9 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
   <div class="panel" id="panel-text">
     <div id="txt-toolbar">
       <label style="font-size:13px">頁面：</label>
-      <select id="txt-page-sel" class="ann-sel" onchange="renderTextPage(+this.value)"></select>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
+      <select id="txt-page-sel" class="ann-sel" onchange="renderTextPage(+this.value);updateNavBtns()"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
       <div class="sep"></div>
       <label style="font-size:12px;color:#888">工具：</label>
       <button class="ann-tool-btn active" id="txt-tool-add" onclick="setTxtTool('add')">➕ 新增文字</button>
@@ -367,7 +371,9 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <button class="btn" id="btn-del-field" onclick="deleteSelField()" disabled>刪除欄位</button>
       <div class="sep"></div>
       <label style="font-size:13px">頁面：</label>
-      <select id="form-page-sel" class="ann-sel" onchange="selectFormPage(+this.value)"></select>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
+      <select id="form-page-sel" class="ann-sel" onchange="selectFormPage(+this.value);updateNavBtns()"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
       <span id="draw-hint" style="font-size:12px;color:#7c3aed;margin-left:8px"></span>
     </div>
     <div id="form-body">
@@ -749,35 +755,18 @@ const S = {
         document.body.classList.remove('space-pan', 'panning');
       }
     });
-    // Scroll to navigate pages in edit modes
-    const modeMap = {
-      'ann-canvas-area':  { getSel: () => document.getElementById('ann-page-sel'),  render: i => renderAnnotatePage(i) },
-      'txt-canvas-area':  { getSel: () => document.getElementById('txt-page-sel'),  render: i => renderTextPage(i) },
-      'form-canvas-area': { getSel: () => document.getElementById('form-page-sel'), render: i => renderFormPage(i) },
-    };
-    Object.entries(modeMap).forEach(([id, cfg]) => {
-      let wheelCooldown = false;
-      document.getElementById(id).addEventListener('wheel', e => {
-        if (wheelCooldown) return;
-        const el = document.getElementById(id);
-        const atTop    = el.scrollTop <= 0;
-        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 2;
-        const goingDown = e.deltaY > 0;
-        const goingUp   = e.deltaY < 0;
-        if ((goingDown && atBottom) || (goingUp && atTop)) {
-          const sel = cfg.getSel();
-          const cur = +sel.value;
-          const next = goingDown ? cur + 1 : cur - 1;
-          if (next >= 0 && next < S.pages.length) {
-            e.preventDefault();
-            wheelCooldown = true;
-            setTimeout(() => wheelCooldown = false, 400);
-            sel.value = next;
-            cfg.render(next);
-          }
-        }
-      }, { passive: false });
+    // Keyboard page navigation (PageDown/PageUp) in edit modes
+    document.addEventListener('keydown', e => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+      const m = S.mode;
+      if (!['annotate','text','form'].includes(m)) return;
+      const isNext = e.key === 'PageDown' || e.key === 'ArrowRight';
+      const isPrev = e.key === 'PageUp'   || e.key === 'ArrowLeft';
+      if (!isNext && !isPrev) return;
+      e.preventDefault();
+      navigatePage(isNext ? 1 : -1);
     });
+
     ['ann-canvas-area','txt-canvas-area','form-canvas-area'].forEach(id => {
       document.getElementById(id).addEventListener('mousedown', e => {
         if (!spaceDown) return;
@@ -990,6 +979,7 @@ function setMode(m) {
   if (m === 'form') renderFormPage(S.fd.pidx);
   if (m === 'text') renderTextPage(S.tx.pidx);
   if (m === 'split') initSplitPanel();
+  if (['annotate','text','form'].includes(m)) updateNavBtns();
 }
 
 function refreshToolbar() {
@@ -1132,6 +1122,27 @@ function deletePage(i, e) {
   if (m === 'annotate') renderAnnotatePage(Math.min(S.an.pidx, S.pages.length - 1));
   else if (m === 'text') renderTextPage(Math.min(S.tx.pidx, S.pages.length - 1));
   else if (m === 'form') renderFormPage(Math.min(S.fd.pidx, S.pages.length - 1));
+}
+
+function currentPageIdx() {
+  const m = S.mode;
+  if (m === 'annotate') return S.an.pidx;
+  if (m === 'text')     return S.tx.pidx;
+  if (m === 'form')     return S.fd.pidx;
+  return 0;
+}
+
+function navigatePage(delta) {
+  const next = currentPageIdx() + delta;
+  if (next < 0 || next >= S.pages.length) return;
+  sidebarNavTo(next);
+  updateNavBtns();
+}
+
+function updateNavBtns() {
+  const idx = currentPageIdx();
+  document.querySelectorAll('.nav-prev').forEach(b => b.disabled = idx <= 0);
+  document.querySelectorAll('.nav-next').forEach(b => b.disabled = idx >= S.pages.length - 1);
 }
 
 function sidebarNavTo(i) {
