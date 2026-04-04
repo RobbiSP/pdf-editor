@@ -19,7 +19,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .btn{padding:6px 14px;border-radius:6px;border:1px solid #444;background:#2a2a3e;color:#d4d4d8;cursor:pointer;font-size:13px;white-space:nowrap}
 .btn:hover{background:#3a3a5e}.btn.primary{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
 .btn.primary:hover{background:#5c7ef5}.btn.active{background:#7c3aed;border-color:#7c3aed;color:#fff}
-.btn:disabled{opacity:.4;cursor:not-allowed;pointer-events:none}
+.btn:disabled{opacity:.4;cursor:not-allowed}
 .sep{width:1px;background:#444;height:24px;margin:0 4px}
 .dropdown{position:relative;display:inline-block}
 .dd-menu{display:none;position:absolute;top:100%;left:0;background:#2a2a3e;border:1px solid #444;border-radius:6px;z-index:100;min-width:160px;margin-top:4px}
@@ -36,7 +36,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #drop-zone{border:2px dashed #444;border-radius:16px;padding:60px;text-align:center;cursor:pointer;transition:all .2s;max-width:480px}
 #drop-zone:hover,#drop-zone.drag-over{border-color:#4c6ef5;background:rgba(76,110,245,.08)}
 #drop-zone h2{font-size:20px;margin-bottom:8px}
-#drop-zone p{color:#888;font-size:14px}
+#drop-zone p{color:#9ca3af;font-size:14px}
 .drop-btns{display:flex;gap:10px;margin-top:16px;justify-content:center}
 /* Pages Overview */
 #panel-pages{flex:1;overflow-y:auto;padding:24px;align-content:flex-start;flex-wrap:wrap;gap:20px;justify-content:center}
@@ -57,7 +57,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .drag-handle{cursor:grab;color:#666;font-size:18px;flex-shrink:0}
 .file-info{flex:1}
 .file-name{font-size:14px;font-weight:500}
-.file-pages{font-size:12px;color:#888;margin-top:2px}
+.file-pages{font-size:12px;color:#9ca3af;margin-top:2px}
 .remove-btn{background:none;border:none;color:#f87171;cursor:pointer;font-size:18px;padding:0 4px}
 /* Annotate */
 #panel-annotate{flex-direction:column}
@@ -72,7 +72,13 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 /* Ann floating properties panel */
 #ann-float-panel{position:sticky;top:12px;right:12px;align-self:flex-start;margin-left:auto;background:#1e1e2e;border:1px solid #444;border-radius:10px;padding:12px;display:none;flex-direction:column;gap:10px;min-width:160px;box-shadow:0 4px 16px rgba(0,0,0,.4);z-index:10;flex-shrink:0}
 #ann-float-panel.show{display:flex}
-#ann-float-panel .fp-label{font-size:11px;color:#666;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
+#ann-float-panel.collapsed{padding:8px 12px;gap:0;min-width:0}
+#ann-float-panel.collapsed .fp-body{display:none}
+#ann-float-panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}
+#ann-float-panel.collapsed #ann-float-panel-header{margin-bottom:0}
+#ann-fp-toggle{background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;padding:0 0 0 8px;line-height:1;flex-shrink:0}
+#ann-fp-toggle:hover{color:#d4d4d8}
+#ann-float-panel .fp-label{font-size:11px;color:#9ca3af;margin-bottom:2px;text-transform:uppercase;letter-spacing:.4px}
 #ann-float-panel .fp-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap}
 #ann-float-panel .fp-colors{display:flex;gap:4px;flex-wrap:wrap}
 .ann-color-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0;transition:transform .1s}
@@ -88,7 +94,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .ann-tool-btn.active{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
 .color-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0}
 .color-swatch.active{border-color:#fff}
-.opacity-row{display:flex;align-items:center;gap:4px;font-size:12px;color:#999}
+.opacity-row{display:flex;align-items:center;gap:4px;font-size:12px;color:#9ca3af}
 .opacity-row input[type=range]{width:70px;accent-color:#4c6ef5}
 /* Form Designer */
 #panel-form{flex-direction:column}
@@ -106,9 +112,9 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .field-box.selected .resize-handle{background:#f59e0b}
 #rubber-band{position:absolute;border:2px dashed #4c6ef5;background:rgba(76,110,245,.1);pointer-events:none;display:none}
 #form-props{width:230px;background:#1e1e2e;border-left:1px solid #333;padding:16px;flex-shrink:0;overflow-y:auto}
-#form-props h3{font-size:12px;margin-bottom:14px;color:#888;text-transform:uppercase;letter-spacing:.5px}
+#form-props h3{font-size:12px;margin-bottom:14px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px}
 .prop-group{margin-bottom:12px}
-.prop-lbl{font-size:11px;color:#888;margin-bottom:4px}
+.prop-lbl{font-size:11px;color:#9ca3af;margin-bottom:4px}
 .prop-input{width:100%;background:#0f0f1a;border:1px solid #333;border-radius:4px;padding:6px 8px;color:#d4d4d8;font-size:13px}
 .prop-input:focus{outline:none;border-color:#4c6ef5}
 .prop-row{display:flex;gap:6px}
@@ -118,12 +124,12 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #split-header{padding:10px 16px;background:#1e1e2e;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;font-size:13px;flex-shrink:0}
 #split-body{flex:1;overflow-y:auto;padding:24px;max-width:640px}
 #split-body h2{font-size:16px;margin-bottom:6px}
-#split-body .hint{font-size:13px;color:#888;margin-bottom:20px}
+#split-body .hint{font-size:13px;color:#9ca3af;margin-bottom:20px}
 #split-segments{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
 .split-seg{display:flex;align-items:center;gap:8px;background:#1e1e2e;border:1px solid #333;border-radius:8px;padding:10px 14px;font-size:13px}
 .split-seg input{width:60px;background:#0f0f1a;border:1px solid #444;border-radius:4px;padding:4px 8px;color:#d4d4d8;font-size:13px;text-align:center}
 .split-seg input:focus{outline:none;border-color:#4c6ef5}
-.split-seg .seg-label{color:#888;margin-right:4px}
+.split-seg .seg-label{color:#9ca3af;margin-right:4px}
 .split-seg-remove{background:none;border:none;color:#f87171;cursor:pointer;font-size:16px;margin-left:auto;padding:0 4px}
 .split-remaining{background:#1a1a2e;border:1px dashed #555;border-radius:8px;padding:10px 14px;font-size:13px;color:#888;margin-bottom:16px}
 .split-remaining strong{color:#a78bfa}
@@ -133,7 +139,7 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #modal-box{background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:24px;min-width:300px;max-width:400px;width:100%}
 #modal-box h3{margin-bottom:16px;font-size:15px}
 .modal-field{margin-bottom:12px}
-.modal-field label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+.modal-field label{display:block;font-size:12px;color:#9ca3af;margin-bottom:4px}
 .modal-field input{width:100%;background:#0f0f1a;border:1px solid #333;border-radius:4px;padding:8px;color:#d4d4d8;font-size:14px}
 .modal-field input:focus{outline:none;border-color:#4c6ef5}
 .modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:4px}
@@ -143,6 +149,14 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 ::-webkit-scrollbar{width:6px;height:6px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:#444;border-radius:3px}
+/* focus-visible */
+.btn:focus-visible,.ann-tool-btn:focus-visible,.txt-spacing-btn:focus-visible,.pg-act:focus-visible,.sb-rot:focus-visible,.sb-del:focus-visible{outline:2px solid #4c6ef5;outline-offset:2px}
+/* Loading overlay */
+#loading-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:500;align-items:center;justify-content:center;flex-direction:column;gap:12px}
+#loading-overlay.show{display:flex}
+#loading-spinner{width:40px;height:40px;border:3px solid #333;border-top-color:#4c6ef5;border-radius:50%;animation:spin .7s linear infinite}
+#loading-msg{font-size:13px;color:#a5b4fc}
+@keyframes spin{to{transform:rotate(360deg)}}
 /* ── 文字編輯面板 ── */
 #panel-text{flex-direction:column;overflow:hidden}
 #txt-toolbar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#1a1a2e;border-bottom:1px solid #2d2d4a;flex-wrap:wrap;flex-shrink:0}
@@ -151,8 +165,8 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 #txt-canvas-wrap{position:relative;display:inline-block;margin:0 auto}
 #txt-canvas{display:block}
 #txt-overlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
-#txt-props{width:200px;background:#1a1a2e;border-left:1px solid #2d2d4a;padding:16px;overflow-y:auto;flex-shrink:0}
-#txt-props h3{font-size:14px;color:#a5b4fc;margin-bottom:12px;border-bottom:1px solid #2d2d4a;padding-bottom:8px}
+#txt-props{width:200px;background:#1e1e2e;border-left:1px solid #333;padding:16px;overflow-y:auto;flex-shrink:0}
+#txt-props h3{font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px;border-bottom:1px solid #333;padding-bottom:8px}
 /* 文字框樣式 */
 .txt-box{position:absolute;outline:none;border:none;background:transparent;cursor:text;min-width:40px;min-height:1em;white-space:pre;font-family:sans-serif;line-height:1.3;padding:2px 4px}
 .txt-box[data-sel="1"]{outline:2px solid #4c6ef5;box-shadow:0 0 0 3px rgba(76,110,245,.2)}
@@ -177,7 +191,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 .sb-item.sb-active{border-color:#4c6ef5;background:#1a2040}
 .sb-item canvas{display:block;width:100%}
 .sb-footer{padding:2px 3px;font-size:10px;color:#666;display:flex;justify-content:space-between;align-items:center;background:#1e1e2e;gap:1px}
-.sb-num{font-size:10px;color:#666;min-width:14px}
+.sb-num{font-size:10px;color:#9ca3af;min-width:14px}
 .sb-rot{background:none;border:none;color:#666;cursor:pointer;font-size:12px;padding:0 1px;line-height:1}
 .sb-rot:hover{color:#d4d4d8}
 .sb-del{background:none;border:none;color:#555;cursor:pointer;font-size:11px;padding:0 1px;line-height:1;margin-left:1px}
@@ -188,7 +202,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 
 <div id="toolbar">
   <div class="dropdown" id="dd-load">
-    <button class="btn primary" onclick="toggleDD('dd-load')">📂 載入 ▾</button>
+    <button class="btn primary" onclick="toggleDD('dd-load')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>載入 ▾</button>
     <div class="dd-menu" id="dd-load-menu">
       <div class="dd-item" onclick="openFilePicker();closeDD()">選擇檔案（PDF / Word / 圖片）</div>
       <div class="dd-item" onclick="openFolderPicker();closeDD()">選擇資料夾（批次）</div>
@@ -208,11 +222,11 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
     <button class="btn" style="padding:4px 10px;font-size:15px;line-height:1" onclick="stepZoom(+10)">＋</button>
   </div>
   <div class="dropdown" id="dd-out">
-    <button class="btn" id="btn-out" onclick="toggleDD('dd-out')" disabled>💾 輸出 ▾</button>
+    <button class="btn" id="btn-out" onclick="toggleDD('dd-out')" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>輸出 ▾</button>
     <div class="dd-menu" id="dd-out-menu">
       <div class="dd-item" id="item-save-folder" onclick="doExport(true);closeDD()">儲存到資料夾…</div>
       <div class="dd-item" onclick="doExport(false);closeDD()">下載檔案</div>
-      <div class="dd-item" onclick="openEncryptModal();closeDD()">🔒 加密後下載…</div>
+      <div class="dd-item" onclick="openEncryptModal();closeDD()"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:5px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>加密後下載…</div>
     </div>
   </div>
   <span id="fs-badge"></span>
@@ -243,7 +257,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
   <div class="panel" id="panel-merge">
     <div>
       <h2 style="font-size:16px;margin-bottom:8px">合併 PDF</h2>
-      <p style="font-size:13px;color:#888;margin-bottom:16px">拖曳調整合併順序，確認後點「執行合併」</p>
+      <p style="font-size:13px;color:#9ca3af;margin-bottom:16px">拖曳調整合併順序，確認後點「執行合併」</p>
       <ul id="merge-list"></ul>
       <div style="margin-top:16px;display:flex;gap:10px">
         <button class="btn primary" onclick="doMerge()">執行合併並輸出</button>
@@ -257,9 +271,9 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
     <div id="ann-toolbar">
       <!-- Page selector -->
       <label style="font-size:13px">頁面：</label>
-      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
-      <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value);updateNavBtns()"></select>
-      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)" aria-label="上一頁">◀</button>
+      <select id="ann-page-sel" class="ann-sel" onchange="renderAnnotatePage(+this.value);updateNavBtns()" aria-label="選擇頁面"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)" aria-label="下一頁">▶</button>
       <div class="sep"></div>
       <!-- Tool selector -->
       <button class="ann-tool-btn" id="ann-tool-select" onclick="setAnnTool('select')">↖ 選取</button>
@@ -268,11 +282,11 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <button class="ann-tool-btn" id="ann-tool-marker" onclick="setAnnTool('marker')">螢光筆</button>
       <button class="ann-tool-btn" id="ann-tool-rect" onclick="setAnnTool('rect')">矩形</button>
       <button class="ann-tool-btn" id="ann-tool-ellipse" onclick="setAnnTool('ellipse')">橢圓</button>
-      <button class="ann-tool-btn" id="ann-tool-eraser" onclick="setAnnTool('eraser')">🧹 橡皮擦</button>
+      <button class="ann-tool-btn" id="ann-tool-eraser" onclick="setAnnTool('eraser')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><path d="M20 20H7L3 16l13-13 6 6-2 11z"/><path d="M6 17l4-4"/></svg>橡皮擦</button>
       <div class="sep"></div>
       <!-- Current color preview (click to focus float panel) -->
       <div id="ann-color-preview" style="width:22px;height:22px;border-radius:4px;border:2px solid #666;background:#000;cursor:pointer;flex-shrink:0" title="目前顏色" onclick="document.getElementById('ann-float-panel').scrollIntoView({behavior:'smooth'})"></div>
-      <span id="ann-hint" style="font-size:12px;color:#666;margin-left:4px"></span>
+      <span id="ann-hint" style="font-size:12px;color:#9ca3af;margin-left:4px"></span>
     </div>
     <div id="ann-canvas-area">
       <div id="ann-canvas-wrap">
@@ -281,39 +295,45 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       </div>
       <!-- Floating properties panel -->
       <div id="ann-float-panel">
-        <div>
-          <div class="fp-label">顏色</div>
-          <div class="fp-colors" id="ann-fp-colors">
-            <div class="ann-color-swatch active" style="background:#000000" data-color="#000000" onclick="setAnnColor(this)" title="黑"></div>
-            <div class="ann-color-swatch" style="background:#ffffff;border-color:#555" data-color="#ffffff" onclick="setAnnColor(this)" title="白"></div>
-            <div class="ann-color-swatch" style="background:#e03131" data-color="#e03131" onclick="setAnnColor(this)" title="紅"></div>
-            <div class="ann-color-swatch" style="background:#1971c2" data-color="#1971c2" onclick="setAnnColor(this)" title="藍"></div>
-            <div class="ann-color-swatch" style="background:#2f9e44" data-color="#2f9e44" onclick="setAnnColor(this)" title="綠"></div>
-            <div class="ann-color-swatch" style="background:#f59f00" data-color="#f59f00" onclick="setAnnColor(this)" title="黃"></div>
-            <div class="ann-color-swatch" style="background:#ae3ec9" data-color="#ae3ec9" onclick="setAnnColor(this)" title="紫"></div>
-            <div class="ann-color-swatch" style="background:#f76707" data-color="#f76707" onclick="setAnnColor(this)" title="橘"></div>
-          </div>
+        <div id="ann-float-panel-header">
+          <span style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.4px">屬性</span>
+          <button id="ann-fp-toggle" onclick="toggleAnnPanel()" title="收起面板" aria-label="收起屬性面板">▲</button>
         </div>
-        <div class="fp-sep"></div>
-        <div>
-          <div class="fp-label">粗細</div>
-          <div class="fp-row">
-            <input type="range" class="fp-slider" id="ann-fp-width" min="1" max="30" value="2" oninput="setAnnWidth(+this.value)">
-            <span class="fp-val" id="ann-fp-width-val">2</span>
+        <div class="fp-body">
+          <div>
+            <div class="fp-label">顏色</div>
+            <div class="fp-colors" id="ann-fp-colors">
+              <div class="ann-color-swatch active" style="background:#000000" data-color="#000000" onclick="setAnnColor(this)" title="黑"></div>
+              <div class="ann-color-swatch" style="background:#ffffff;border-color:#555" data-color="#ffffff" onclick="setAnnColor(this)" title="白"></div>
+              <div class="ann-color-swatch" style="background:#e03131" data-color="#e03131" onclick="setAnnColor(this)" title="紅"></div>
+              <div class="ann-color-swatch" style="background:#1971c2" data-color="#1971c2" onclick="setAnnColor(this)" title="藍"></div>
+              <div class="ann-color-swatch" style="background:#2f9e44" data-color="#2f9e44" onclick="setAnnColor(this)" title="綠"></div>
+              <div class="ann-color-swatch" style="background:#f59f00" data-color="#f59f00" onclick="setAnnColor(this)" title="黃"></div>
+              <div class="ann-color-swatch" style="background:#ae3ec9" data-color="#ae3ec9" onclick="setAnnColor(this)" title="紫"></div>
+              <div class="ann-color-swatch" style="background:#f76707" data-color="#f76707" onclick="setAnnColor(this)" title="橘"></div>
+            </div>
           </div>
-        </div>
-        <div>
-          <div class="fp-label">透明度</div>
-          <div class="fp-row">
-            <input type="range" class="fp-slider" id="ann-fp-opacity" min="0" max="100" value="100" oninput="setAnnOpacity(+this.value)">
-            <span class="fp-val" id="ann-fp-opacity-val">100%</span>
+          <div class="fp-sep"></div>
+          <div>
+            <div class="fp-label">粗細</div>
+            <div class="fp-row">
+              <input type="range" class="fp-slider" id="ann-fp-width" min="1" max="30" value="2" oninput="setAnnWidth(+this.value)">
+              <span class="fp-val" id="ann-fp-width-val">2</span>
+            </div>
           </div>
-        </div>
-        <div id="ann-fp-fill-row">
-          <div class="fp-label">底色透明度</div>
-          <div class="fp-row">
-            <input type="range" class="fp-slider" id="ann-fp-fill" min="0" max="100" value="0" oninput="updateAnnFillOpacity(+this.value)">
-            <span class="fp-val" id="ann-fp-fill-val">0%</span>
+          <div>
+            <div class="fp-label">透明度</div>
+            <div class="fp-row">
+              <input type="range" class="fp-slider" id="ann-fp-opacity" min="0" max="100" value="100" oninput="setAnnOpacity(+this.value)">
+              <span class="fp-val" id="ann-fp-opacity-val">100%</span>
+            </div>
+          </div>
+          <div id="ann-fp-fill-row">
+            <div class="fp-label">底色透明度</div>
+            <div class="fp-row">
+              <input type="range" class="fp-slider" id="ann-fp-fill" min="0" max="100" value="0" oninput="updateAnnFillOpacity(+this.value)">
+              <span class="fp-val" id="ann-fp-fill-val">0%</span>
+            </div>
           </div>
         </div>
       </div>
@@ -324,15 +344,15 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
   <div class="panel" id="panel-text">
     <div id="txt-toolbar">
       <label style="font-size:13px">頁面：</label>
-      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
-      <select id="txt-page-sel" class="ann-sel" onchange="renderTextPage(+this.value);updateNavBtns()"></select>
-      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)" aria-label="上一頁">◀</button>
+      <select id="txt-page-sel" class="ann-sel" onchange="renderTextPage(+this.value);updateNavBtns()" aria-label="選擇頁面"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)" aria-label="下一頁">▶</button>
       <div class="sep"></div>
-      <label style="font-size:12px;color:#888">工具：</label>
-      <button class="ann-tool-btn active" id="txt-tool-add" onclick="setTxtTool('add')">➕ 新增文字</button>
+      <label style="font-size:12px;color:#9ca3af">工具：</label>
+      <button class="ann-tool-btn active" id="txt-tool-add" onclick="setTxtTool('add')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新增文字</button>
       <button class="ann-tool-btn" id="txt-tool-select" onclick="setTxtTool('select')">↖ 選取</button>
       <div class="sep"></div>
-      <label style="font-size:12px;color:#888">顏色：</label>
+      <label style="font-size:12px;color:#9ca3af">顏色：</label>
       <div id="txt-colors" style="display:flex;gap:4px">
         <div class="color-swatch active" style="background:#000000" data-color="#000000" onclick="setTxtColor(this)" title="黑"></div>
         <div class="color-swatch" style="background:#ffffff;border-color:#666" data-color="#ffffff" onclick="setTxtColor(this)" title="白"></div>
@@ -342,7 +362,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
         <div class="color-swatch" style="background:#f59f00" data-color="#f59f00" onclick="setTxtColor(this)" title="黃"></div>
       </div>
       <div class="sep"></div>
-      <span id="txt-hint" style="font-size:12px;color:#666">點擊空白處放置文字框；長按可拖移</span>
+      <span id="txt-hint" style="font-size:12px;color:#9ca3af">點擊空白處放置文字框；長按可拖移</span>
     </div>
     <div id="txt-body">
       <div id="txt-canvas-area">
@@ -352,7 +372,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
           <!-- 浮動工具欄和 resize handle -->
           <div id="txt-float-toolbar">
             <span id="txt-size-display" class="txt-size-display" title="點擊輸入精確大小">14px</span>
-            <button class="txt-spacing-btn" onclick="adjTxtSpacing(-0.5)" title="縮小間距">
+            <button class="txt-spacing-btn" onclick="adjTxtSpacing(-0.5)" title="縮小間距" aria-label="縮小字距">
               <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="1.5" y1="1" x2="1.5" y2="11"/>
                 <line x1="14.5" y1="1" x2="14.5" y2="11"/>
@@ -361,7 +381,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
                 <polyline points="11.5,3.5 8.5,6 11.5,8.5"/>
               </svg>
             </button>
-            <button class="txt-spacing-btn" onclick="adjTxtSpacing(+0.5)" title="放寬間距">
+            <button class="txt-spacing-btn" onclick="adjTxtSpacing(+0.5)" title="放寬間距" aria-label="放寬字距">
               <svg width="16" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                 <line x1="1.5" y1="1" x2="1.5" y2="11"/>
                 <line x1="14.5" y1="1" x2="14.5" y2="11"/>
@@ -371,7 +391,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
               </svg>
             </button>
             <div id="txt-float-colors" style="display:flex;gap:3px"></div>
-            <button id="txt-float-delete" onclick="deleteTxtBox()" style="background:none;border:1px solid #f87171;color:#f87171;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px">✕</button>
+            <button id="txt-float-delete" onclick="deleteTxtBox()" style="background:none;border:1px solid #f87171;color:#f87171;padding:2px 6px;border-radius:3px;cursor:pointer;font-size:12px" aria-label="刪除文字框">✕</button>
           </div>
           <div id="txt-resize-handle"></div>
         </div>
@@ -388,7 +408,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
           <input class="prop-input" id="txt-prop-size" type="number" value="14" min="6" max="120" oninput="updTxtProp('size',+this.value)">
         </div>
 
-        <button class="btn" style="margin-top:12px;width:100%;color:#f87171" onclick="deleteTxtBox()">🗑 刪除文字框</button>
+        <button class="btn" style="margin-top:12px;width:100%;color:#f87171" onclick="deleteTxtBox()"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>刪除文字框</button>
       </div>
     </div>
   </div>
@@ -400,9 +420,9 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <button class="btn" id="btn-del-field" onclick="deleteSelField()" disabled>刪除欄位</button>
       <div class="sep"></div>
       <label style="font-size:13px">頁面：</label>
-      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)">◀</button>
-      <select id="form-page-sel" class="ann-sel" onchange="selectFormPage(+this.value);updateNavBtns()"></select>
-      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)">▶</button>
+      <button class="ann-tool-btn nav-prev" onclick="navigatePage(-1)" title="上一頁 (PageUp/←)" aria-label="上一頁">◀</button>
+      <select id="form-page-sel" class="ann-sel" onchange="selectFormPage(+this.value);updateNavBtns()" aria-label="選擇頁面"></select>
+      <button class="ann-tool-btn nav-next" onclick="navigatePage(1)" title="下一頁 (PageDown/→)" aria-label="下一頁">▶</button>
       <span id="draw-hint" style="font-size:12px;color:#7c3aed;margin-left:8px"></span>
     </div>
     <div id="form-body">
@@ -487,8 +507,8 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 <!-- Encrypt Modal -->
 <div id="encrypt-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;align-items:center;justify-content:center">
   <div style="background:#1e1e2e;border:1px solid #444;border-radius:12px;padding:24px;min-width:320px;max-width:420px;width:100%">
-    <h3 style="margin-bottom:8px;font-size:15px">🔒 建立加密 ZIP</h3>
-    <p style="font-size:12px;color:#999;margin-bottom:16px">PDF 將被壓縮成加密 ZIP，需要密碼才能解壓</p>
+    <h3 style="margin-bottom:8px;font-size:15px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:6px"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>建立加密 ZIP</h3>
+    <p style="font-size:12px;color:#9ca3af;margin-bottom:16px">PDF 將被壓縮成加密 ZIP，需要密碼才能解壓</p>
     <div class="modal-field">
       <label>解壓密碼</label>
       <input id="enc-pwd" type="password" placeholder="使用者需輸入此密碼才能解壓 ZIP" autocomplete="new-password">
@@ -506,6 +526,10 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
 </div>
 
 <div id="toast"></div>
+<div id="loading-overlay" role="status" aria-live="polite">
+  <div id="loading-spinner"></div>
+  <div id="loading-msg"></div>
+</div>
 
 <script>
 // ── PDF RC4-40 Standard Security Handler ─────────────────────
@@ -952,7 +976,7 @@ async function convertImageToPdf(file) {
 
 async function processFiles(files) {
   if (!files.length) return;
-  toast('載入中…');
+  showLoading('載入中…');
   let added = 0;
   for (const file of files) {
     try {
@@ -961,11 +985,11 @@ async function processFiles(files) {
       const isImage = n.endsWith('.jpg') || n.endsWith('.jpeg') || n.endsWith('.png');
       let ab, fileName;
       if (isDocx) {
-        toast(`轉換 ${file.name} 中…`);
+        showLoading(`轉換 ${file.name} 中…`);
         ab = await convertWordToPdf(file);
         fileName = file.name.replace(/\.docx$/i, '.pdf');
       } else if (isImage) {
-        toast(`轉換圖片 ${file.name} 中…`);
+        showLoading(`轉換圖片 ${file.name} 中…`);
         ab = await convertImageToPdf(file);
         fileName = file.name.replace(/\.(jpg|jpeg|png)$/i, '.pdf');
       } else {
@@ -986,6 +1010,7 @@ async function processFiles(files) {
       added++;
     } catch (e) { toast(`載入失敗 ${file.name}：${e.message}`); }
   }
+  hideLoading();
   if (added) {
     refreshToolbar();
     renderThumbs();
@@ -1243,7 +1268,7 @@ function removeFile(fid) {
 // ── Merge ──────────────────────────────────────────────────
 async function doMerge() {
   if (S.files.length < 2) { toast('請載入至少 2 個 PDF 檔案'); return; }
-  toast('合併中…');
+  showLoading('合併中…');
   try {
     const doc = await PDFLib.PDFDocument.create();
     for (const file of S.files) {
@@ -1262,15 +1287,16 @@ async function doMerge() {
         });
         const w = await fh.createWritable();
         await w.write(bytes); await w.close();
-        toast('已儲存合併檔案');
+        hideLoading(); toast('已儲存合併檔案');
         return;
-      } catch (e) { if (e.name === 'AbortError') return; }
+      } catch (e) { if (e.name === 'AbortError') { hideLoading(); return; } }
     }
+    hideLoading();
     // Fallback: prompt for filename then download
     const name = prompt('請輸入合併後的檔名：', 'merged.pdf');
     if (name === null) return;
     downloadBytes(bytes, name.trim() || 'merged.pdf');
-  } catch (e) { toast('合併失敗：' + e.message); }
+  } catch (e) { hideLoading(); toast('合併失敗：' + e.message); }
 }
 
 // ── Split (Range-based) ────────────────────────────────────
@@ -1373,13 +1399,13 @@ async function doSplitRanges() {
   if (remaining.length) outputs.push({ name: `拆分_剩餘.pdf`, indices: remaining });
   if (!outputs.length) { toast('沒有需要輸出的頁面'); return; }
 
-  toast(`拆分中，共 ${outputs.length} 份…`);
+  showLoading(`拆分中，共 ${outputs.length} 份…`);
 
   // Choose output method
   let dirHandle = null;
   if (S.hasFS) {
     try { dirHandle = await window.showDirectoryPicker(); }
-    catch (e) { if (e.name === 'AbortError') return; }
+    catch (e) { if (e.name === 'AbortError') { hideLoading(); return; } }
   }
 
   try {
@@ -1404,8 +1430,8 @@ async function doSplitRanges() {
         await new Promise(r => setTimeout(r, 400));
       }
     }
-    toast(`已完成拆分，共輸出 ${outputs.length} 份 PDF`);
-  } catch (e) { toast('拆分失敗：' + e.message); }
+    hideLoading(); toast(`已完成拆分，共輸出 ${outputs.length} 份 PDF`);
+  } catch (e) { hideLoading(); toast('拆分失敗：' + e.message); }
 }
 
 // ── Annotate ───────────────────────────────────────────────
@@ -1535,6 +1561,15 @@ function setAnnTool(tool) {
   document.getElementById('ann-hint').textContent = hints[tool] || '';
   if (tool === 'marker') { document.getElementById('ann-fp-width').value = 12; document.getElementById('ann-fp-width-val').textContent = 12; S.an.strokeWidth = 12; }
   renderAnnOverlay();
+}
+
+function toggleAnnPanel() {
+  const panel = document.getElementById('ann-float-panel');
+  const btn = document.getElementById('ann-fp-toggle');
+  const collapsed = panel.classList.toggle('collapsed');
+  btn.textContent = collapsed ? '▼' : '▲';
+  btn.title = collapsed ? '展開面板' : '收起面板';
+  btn.setAttribute('aria-label', collapsed ? '展開屬性面板' : '收起屬性面板');
 }
 
 function setAnnColor(el) {
@@ -2553,7 +2588,7 @@ async function confirmEncrypt() {
 }
 async function doExport(toFolder, userPassword) {
   if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
-  toast('產生 PDF 中…');
+  showLoading('產生 PDF 中…');
   try {
     const doc = await PDFLib.PDFDocument.create();
     let _font = null; // 惰性載入，只在有表單欄位時使用
@@ -2709,10 +2744,10 @@ async function doExport(toFolder, userPassword) {
     }
     catch (err) {
       console.error('ZIP 建立失敗:', err);
-      toast('⚠️ 錯誤：' + err.message);
+      hideLoading(); toast('⚠️ 錯誤：' + err.message);
       await saveOutput(pdfBytes, 'output.pdf', toFolder);
     }
-  } catch (e) { toast('輸出失敗：' + e.message); console.error(e); }
+  } catch (e) { hideLoading(); toast('輸出失敗：' + e.message); console.error(e); }
 }
 
 function canvasToPngBytes(canvas) {
@@ -2728,12 +2763,13 @@ async function saveOutput(bytes, filename, toFolder) {
       const fh = await dir.getFileHandle(filename, { create: true });
       const w = await fh.createWritable();
       await w.write(bytes); await w.close();
-      toast('已儲存：' + filename); return;
+      hideLoading(); toast('已儲存：' + filename); return;
     } catch (e) {
-      if (e.name === 'AbortError') return;
+      if (e.name === 'AbortError') { hideLoading(); return; }
       toast('資料夾儲存失敗，改為下載');
     }
   }
+  hideLoading();
   downloadBytes(bytes, filename);
   toast('已下載：' + filename);
 }
@@ -2775,6 +2811,13 @@ function toast(msg) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.classList.add('show');
   clearTimeout(_toastT); _toastT = setTimeout(() => el.classList.remove('show'), 2800);
+}
+function showLoading(msg) {
+  document.getElementById('loading-msg').textContent = msg || '';
+  document.getElementById('loading-overlay').classList.add('show');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('show');
 }
 </script>
 </body>

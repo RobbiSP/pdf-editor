@@ -1,6 +1,50 @@
 # CHANGELOG
 
-## [0.7.0] — 2026-04-02（開發中）
+## [0.7.0] — 2026-04-04
+
+### UIUX 優化（第二波）
+
+#### 🎨 色彩對比度修正
+- 次要文字統一從 `#888`/`#666`/`#999` 調整為 `#9ca3af`（深化，提升可讀性）
+- 涵蓋：提示文字、標籤、輔助說明等所有次要文字
+
+#### 🗂️ 浮動屬性面板加收起按鈕
+- 標示標色的浮動屬性面板右上角新增收起（▲）/展開（▼）切換按鈕
+- 收起後只顯示標題列，不遮擋 PDF 內容
+
+#### 🖼️ 圖示統一（部分 Emoji → SVG）
+- 主工具列「載入」「輸出」改用 Lucide 風格 SVG 圖示
+- 「加密後下載」「加密 ZIP Modal」改用鎖頭 SVG
+- 標示工具欄「橡皮擦」改用 SVG
+- 文字工具欄「新增文字」「刪除文字框」改用 SVG
+
+#### 🔧 屬性面板樣式統一
+- `#txt-props`（文字屬性面板）背景、邊框、標題樣式改為與 `#ann-float-panel` 一致（`#1e1e2e`、`#333`、uppercase letter-spacing）
+
+---
+
+### UIUX 優化（第一波）
+
+#### 🖱️ 禁用按鈕顯示正確游標
+- 移除 `.btn:disabled` 的 `pointer-events:none`，讓 `cursor:not-allowed` 正確顯示
+- 按鈕本身的 `disabled` 屬性已防止點擊，無需 pointer-events 干預
+
+#### ⏳ 全域 Loading 遮罩
+- 新增半透明 Loading 遮罩（旋轉圓圈 + 狀態文字），取代原本的 Toast 提示
+- 涵蓋操作：載入檔案、Word/圖片轉換、合併、拆分、輸出 PDF / ZIP
+
+#### ♿ 無障礙：aria-label
+- 所有圖示按鈕（◀ ▶ ✕ 等）加上 `aria-label`
+- 三組頁面選擇下拉加上 `aria-label="選擇頁面"`
+- Loading 遮罩加上 `role="status" aria-live="polite"`
+
+#### ⌨️ 無障礙：focus-visible
+- 加入 `:focus-visible` 樣式（藍色外框），讓鍵盤使用者看到焦點位置
+- 涵蓋：`.btn`、`.ann-tool-btn`、`.txt-spacing-btn`、`.pg-act`、`.sb-rot`、`.sb-del`
+
+---
+
+## [0.7.0-dev] — 2026-04-02（舊開發記錄）
 
 ### 修復
 
@@ -45,41 +89,6 @@
   - 使用 event delegation 處理浮動工具欄事件
   - 每次位置更新時重新初始化必要的事件監聽器
   - Inline 編輯字體大小時動態建立 input 並在提交後還原 span
-
-### 規劃中
-
-#### 🔐 PDF 後端加密（推薦方案）
-
-- **方案**：前端導出 PDF → 送後端加密 → 用戶下載加密檔案
-- **優點**：
-  - 使用成熟的 PDF 庫（pypdf、reportlab 等）
-  - 原生支援 PDF 安全處理程序（RC4、AES）
-  - 可設定用戶密碼 / 所有者密碼 / 權限控制
-  - 實作簡單（~5 行代碼）
-- **技術棧**：Python (Flask/FastAPI) + pypdf
-- **範例**：
-
-  ```python
-  from pypdf import PdfReader, PdfWriter
-  writer = PdfWriter()
-  writer.add_page(reader.pages[0])
-  writer.encrypt("userPassword", "ownerPassword")
-  ```
-
-- **狀態**：待實作，優先於其他加密方案
-
-#### 🔐 ZIP 加密備選方案
-
-- **理由**：若需要純前端或無後端環境
-- **方案**：導出 PDF → 壓縮成加密 ZIP → 用戶下載解壓
-- **優缺**：跨平台支持 vs. 多一個解壓步驟
-- **狀態**：備選，暫不優先
-
-#### 🎨 其他 UI/UX 改進
-
-- 文字編輯面板：調整工具欄佈局，使顏色快選更容易操作
-- 快捷鍵支援：新增常用操作的鍵盤快捷鍵（如 Delete 刪除文字框）
-- 縮圖側欄寬度調整：允許用戶動態改變側欄寬度以更好地預覽
 
 ---
 

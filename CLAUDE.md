@@ -1,5 +1,19 @@
 # PDF 編輯工具 — 專案說明
 
+## 開發流程規範
+
+所有功能開發、Bug 修復、UX 優化，**一律使用 git worktree 隔離開發**，不直接在 `main` 上修改。
+
+流程：
+1. 建立新 branch（命名規則：`feat/xxx`、`fix/xxx`、`ux/xxx`）
+2. 用 `git worktree add` 在獨立目錄開發
+3. 完成後 merge 回 `main`，刪除 worktree 與 branch
+4. Push 到 GitHub
+
+例外：僅修改文件（CHANGELOG.md、CLAUDE.md）可直接在 `main` 上操作。
+
+---
+
 ## 專案目的
 純前端（單一 HTML 檔）的 PDF 編輯工具，用來取代公司部份 Adobe 功能。
 分享給同事時以 ZIP 方式傳送離線版，不需安裝任何軟體，雙擊即用。
