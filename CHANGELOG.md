@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## [0.8.1] — 2026-04-05
+
+### 部署優化
+
+- **支援 GitHub Pages**：將 `pdf-editor.html` 重新命名為 `index.html`，符合 GitHub Pages 預設入口搜尋規則。
+- **更新打包腳本**：同步更新 `build-offline.js` 與 `CLAUDE.md` 以維持專案一致性。
+
+
+
 ## [0.8.0] — 2026-04-05
 
 ### UIUX 優化（第三波）
