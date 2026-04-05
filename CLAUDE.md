@@ -21,17 +21,18 @@
 ## 檔案結構
 ```
 pdf-editor/
-├── pdf-editor.html          ← 主要開發檔（含 CDN 連結，需網路）
+├── index.html               ← 主要開發檔（含 CDN 連結，需網路；GitHub Pages 入口）
 ├── build-offline.js         ← 打包腳本，產生離線版
 ├── dist/
 │   └── pdf-editor-offline.html  ← 離線版輸出（不進 git，3.1MB）
+│   └── index-offline.html   ← 離線版輸出（不進 git，3.1MB）
 └── CLAUDE.md                ← 本檔案
 ```
 
 ## 打包離線版
 ```bash
 node build-offline.js
-# 輸出至 dist/pdf-editor-offline.html
+# 輸出至 dist/index-offline.html
 ```
 
 ## 使用的 CDN Libraries

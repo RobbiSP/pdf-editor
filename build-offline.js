@@ -60,7 +60,7 @@ async function build() {
   }));
 
   console.log('\n🔧 組裝離線版...');
-  let html = fs.readFileSync(path.join(__dirname, 'pdf-editor.html'), 'utf8');
+  let html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
 
   // 替換各 CDN 標籤（使用函式形式避免 $& 特殊展開）
   for (const [key, url] of Object.entries(TAG_MAP)) {
