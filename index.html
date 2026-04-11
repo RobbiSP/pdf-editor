@@ -95,6 +95,10 @@ body{font-family:system-ui,-apple-system,sans-serif;background:#0f0f1a;color:#d4
 .ann-tool-btn.active{background:#4c6ef5;border-color:#4c6ef5;color:#fff}
 .color-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;flex-shrink:0}
 .color-swatch.active{border-color:#fff}
+/* Original text edit overlay items */
+.txt-orig-item{position:absolute;cursor:pointer;box-sizing:border-box;border:1px solid transparent;border-radius:2px;transition:background .1s,border-color .1s;pointer-events:all}
+.txt-orig-item:hover{background:rgba(76,110,245,.18);border-color:#4c6ef5}
+.txt-orig-item:hover::after{content:attr(data-text);position:absolute;bottom:100%;left:0;background:#1e1e2e;color:#93c5fd;font-size:11px;padding:2px 6px;border-radius:3px;white-space:nowrap;pointer-events:none;max-width:240px;overflow:hidden;text-overflow:ellipsis;border:1px solid #444;z-index:50}
 .opacity-row{display:flex;align-items:center;gap:4px;font-size:12px;color:#9ca3af}
 .opacity-row input[type=range]{width:70px;accent-color:#4c6ef5}
 /* Form Designer */
@@ -352,6 +356,7 @@ body.space-pan.panning,body.space-pan.panning *{cursor:grabbing !important}
       <label style="font-size:12px;color:#9ca3af">工具：</label>
       <button class="ann-tool-btn active" id="txt-tool-add" onclick="setTxtTool('add')"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>新增文字</button>
       <button class="ann-tool-btn" id="txt-tool-select" onclick="setTxtTool('select')">↖ 選取</button>
+      <button class="ann-tool-btn" id="txt-tool-edit-orig" onclick="setTxtTool('edit-orig')" title="點擊 PDF 原有文字直接修改">✏️ 編輯原文</button>
       <div class="sep"></div>
       <label style="font-size:12px;color:#9ca3af">顏色：</label>
       <div id="txt-colors" style="display:flex;gap:4px">
@@ -1610,18 +1615,28 @@ function setAnnOpacity(v) {
 // ── 文字編輯 ────────────────────────────────────────────────
 function setTxtTool(tool) {
   S.tx.tool = tool;
-  ['add','select'].forEach(t => {
+  ['add','select','edit-orig'].forEach(t => {
     const btn = document.getElementById('txt-tool-' + t);
     if (btn) btn.classList.toggle('active', t === tool);
   });
-  document.getElementById('txt-hint').textContent =
-    tool === 'add' ? '點擊空白處放置文字框；點擊或長按可編輯/拖移' : '點擊文字框選取或編輯；拖曳可移動';
+  const hints = {
+    'add': '點擊空白處放置文字框；點擊或長按可編輯/拖移',
+    'select': '點擊文字框選取或編輯；拖曳可移動',
+    'edit-orig': '點擊 PDF 原有文字即可修改（白底覆蓋原字，重新輸入）',
+  };
+  document.getElementById('txt-hint').textContent = hints[tool] || '';
   document.querySelectorAll('.txt-box').forEach(b => {
     b.classList.toggle('txt-select-mode', tool === 'select');
     b.contentEditable = 'true';
   });
   document.getElementById('txt-overlay').style.pointerEvents = 'auto';
   if (tool === 'select') selectTxtBox(null);
+  // 清除或顯示原文 overlay
+  if (tool !== 'edit-orig') {
+    document.getElementById('txt-overlay').querySelectorAll('.txt-orig-item').forEach(e => e.remove());
+  } else {
+    loadOrigTextItems();
+  }
   // 初始化浮動工具欄顏色
   initFloatToolbarColors();
 }
@@ -1656,8 +1671,9 @@ async function renderTextPage(idx) {
   await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
   const ov = document.getElementById('txt-overlay');
   ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
-  ov.style.pointerEvents = S.tx.tool === 'add' ? 'auto' : 'none';
+  ov.style.pointerEvents = 'auto';
   renderTxtBoxes();
+  if (S.tx.tool === 'edit-orig') loadOrigTextItems();
   updateSidebarActive(idx);
 }
 
@@ -1666,6 +1682,72 @@ function renderTxtBoxes() {
   ov.querySelectorAll('.txt-box').forEach(b => b.remove());
   const cv = document.getElementById('txt-canvas');
   (S.textBoxes[S.tx.pid] || []).forEach(tb => createTxtBoxEl(tb, cv.height, S.tx.scale));
+}
+
+async function loadOrigTextItems() {
+  const ov = document.getElementById('txt-overlay');
+  ov.querySelectorAll('.txt-orig-item').forEach(e => e.remove());
+  const pg = S.pages[S.tx.pidx];
+  if (!pg) return;
+  const file = S.files.find(f => f.id === pg.fid);
+  if (!file) return;
+  const pjsPage = await file.pjs.getPage(pg.pidx + 1);
+  const vp = pjsPage.getViewport({ scale: S.tx.scale, rotation: pg.rot });
+  const cv = document.getElementById('txt-canvas');
+  const content = await pjsPage.getTextContent();
+
+  content.items.forEach(item => {
+    if (!item.str || !item.str.trim()) return;
+
+    // item.transform = [a, b, c, d, tx, ty] in PDF user space (y from bottom)
+    const [a, b, , d, tx, ty] = item.transform;
+    const fontSize = Math.sqrt(a * a + b * b);          // effective font size in PDF pts
+    const scaledFontSize = fontSize * S.tx.scale;
+    const scaledWidth = (item.width || 0) * S.tx.scale;
+
+    // Convert baseline point to canvas coords
+    const [vx, vy] = vp.convertToViewportPoint(tx, ty);
+
+    const el = document.createElement('div');
+    el.className = 'txt-orig-item';
+    el.dataset.text = item.str;
+    el.style.left   = vx + 'px';
+    el.style.top    = (vy - scaledFontSize) + 'px';
+    el.style.width  = Math.max(scaledWidth, scaledFontSize * 0.6) + 'px';
+    el.style.height = scaledFontSize + 'px';
+    el.title = item.str;
+
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      el.remove();
+      createTextBoxFromOrig(item.str, tx, ty, fontSize);
+    });
+
+    ov.appendChild(el);
+  });
+}
+
+function createTextBoxFromOrig(text, pdfX, pdfY, fontSize) {
+  const size = Math.max(8, Math.min(72, Math.round(fontSize)));
+  const tb = {
+    id: uid(),
+    x: pdfX,
+    y: pdfY,
+    text: text,
+    size: size,
+    color: '#000000',
+    spacing: 0,
+    hasBg: true,
+    bgColor: '#ffffff',
+  };
+  if (!S.textBoxes[S.tx.pid]) S.textBoxes[S.tx.pid] = [];
+  S.textBoxes[S.tx.pid].push(tb);
+  const cv = document.getElementById('txt-canvas');
+  createTxtBoxEl(tb, cv.height, S.tx.scale);
+  setTimeout(() => {
+    const el = document.querySelector('.txt-box[data-id="' + tb.id + '"]');
+    if (el) { selectTxtBox(tb.id); el.focus(); }
+  }, 30);
 }
 
 function createTxtBoxEl(tb, cvH, sc) {
