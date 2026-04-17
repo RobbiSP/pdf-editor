@@ -2,6 +2,21 @@
 
 ## [2026-04-17]
 
+### 規劃中
+
+#### 🔐 PDF 後端加密 — 技術方案確認（待實作）
+
+- **選定方案**：Google Cloud Run + FastAPI + `pypdf[crypto]`
+- **理由**：
+  - Cloud Run 永久免費層（每月 200 萬次請求、180,000 vCPU-秒），低頻使用幾乎零成本
+  - `pypdf[crypto]` 原生支援 AES-128 / AES-256，比現有手刻 RC4 更安全標準
+  - 部署區域選 `us-central1`（有免費層，`asia-east1` 無）
+  - 相比 Cloud Functions，Cloud Run 並發處理更好、容器環境更穩定
+- **帳號說明**：Gemini Pro 訂閱與 GCP 為獨立系統，用同一 Google 帳號登入 GCP Console 即可；新帳號有 $300 / 90 天試用金
+- **本地開發計畫**：先在本機以 `uvicorn` 測試，確認後再 `gcloud run deploy` 上線
+- **前端整合**：完成後替換現有 RC4 手刻加密，前端改為 `fetch()` POST PDF bytes → 收加密 PDF → 下載
+- **狀態**：後端程式碼待建（`backend/` 資料夾），本次暫緩，下次繼續
+
 ### 修復
 
 #### 🖊️ 筆跡/螢光筆匯出解析度提升至 2x DPI
