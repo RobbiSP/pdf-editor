@@ -751,6 +751,7 @@ const S = {
     fillOpacity: 0,        // 0–100 (rect/ellipse only)
     strokeWidth: 2,        // pt
     drawing: false,
+    drawPid: null,
     drawStart: null,
     currentPoints: [],
     selId: null,           // selected annotation id
@@ -1081,9 +1082,18 @@ function setMode(m) {
   } else if (S.pages.length > 0) {
     document.getElementById('thumb-sidebar').classList.add('visible');
   }
-  if (m === 'annotate') renderAnnotatePage(S.an.pidx);
+  // 切換標示↔文字模式時同步頁碼，避免使用者切換後頁面跳到意外位置
+  if (m === 'annotate') {
+    if (S.pages[S.tx.pidx]) S.an.pidx = S.tx.pidx;
+    document.getElementById('ann-page-sel').value = S.an.pidx;
+    renderAnnotatePage(S.an.pidx);
+  }
   if (m === 'form') renderFormPage(S.fd.pidx);
-  if (m === 'text') renderTextPage(S.tx.pidx);
+  if (m === 'text') {
+    if (S.pages[S.an.pidx]) S.tx.pidx = S.an.pidx;
+    document.getElementById('txt-page-sel').value = S.tx.pidx;
+    renderTextPage(S.tx.pidx);
+  }
   if (m === 'split') initSplitPanel();
   if (['annotate','text','form'].includes(m)) updateNavBtns();
 }
@@ -1499,10 +1509,12 @@ async function renderAnnotatePage(idx) {
   const pg = S.pages[idx]; S.an.pid = pg.id;
   const file = S.files.find(f => f.id === pg.fid);
   const pjsPage = await file.pjs.getPage(pg.pidx + 1);
+  if (S.an.pidx !== idx) return; // 已切換到其他頁，捨棄此次 render
   const vp = pjsPage.getViewport({ scale: S.an.scale, rotation: pg.rot });
   const cv = document.getElementById('ann-canvas');
   cv.width = vp.width; cv.height = vp.height;
   await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  if (S.an.pidx !== idx) return; // 渲染期間再次切頁，捨棄
   // Sync draw canvas size
   const dc = document.getElementById('ann-draw-canvas');
   dc.width = vp.width; dc.height = vp.height;
@@ -1697,10 +1709,12 @@ async function renderTextPage(idx) {
   const pg = S.pages[idx]; S.tx.pid = pg.id;
   const file = S.files.find(f => f.id === pg.fid);
   const pjsPage = await file.pjs.getPage(pg.pidx + 1);
+  if (S.tx.pidx !== idx) return; // 已切換到其他頁，捨棄此次 render
   const vp = pjsPage.getViewport({ scale: S.tx.scale, rotation: pg.rot });
   const cv = document.getElementById('txt-canvas');
   cv.width = vp.width; cv.height = vp.height;
   await pjsPage.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+  if (S.tx.pidx !== idx) return; // 渲染期間再次切頁，捨棄
   const ov = document.getElementById('txt-overlay');
   ov.style.width = vp.width + 'px'; ov.style.height = vp.height + 'px';
   ov.style.pointerEvents = 'auto';
@@ -2134,6 +2148,7 @@ function onDrawStart(e) {
 
   if (S.an.tool === 'text') return;
   S.an.drawing = true;
+  S.an.drawPid = S.an.pid; // 記錄繪圖開始時的頁面 ID，防止切頁後存到錯誤頁面
   const p = dcPos(e);
   S.an.drawStart = p;
   S.an.currentPoints = [p];
@@ -2227,7 +2242,13 @@ function onDrawEnd(e) {
   if (S.an.tool === 'select') { S.an.dragMode = null; return; }
   if (!S.an.drawing || S.an.tool === 'text') return;
   S.an.drawing = false;
+  // 若已切換至其他模式，或切頁後 pid 不符，捨棄此筆劃
+  if (S.mode !== 'annotate' || !S.an.drawPid || !S.annots[S.an.drawPid]) {
+    S.an.currentPoints = [];
+    return;
+  }
   if (S.an.tool === 'eraser') return;
+  const pid = S.an.drawPid; // 使用繪圖開始時的 pid，避免切頁後存到錯誤頁面
   const p = dcPos(e);
   const start = S.an.drawStart;
   const cv = document.getElementById('ann-canvas');
@@ -2238,7 +2259,7 @@ function onDrawEnd(e) {
     const pts = S.an.currentPoints;
     if (pts.length < 2) { S.an.currentPoints = []; renderAnnOverlay(); return; }
     const pdfPoints = pts.map(pt => ({ x: pt.x / sc, y: (cvH - pt.y) / sc }));
-    S.annots[S.an.pid].push({
+    S.annots[pid].push({
       id: uid(), type: S.an.tool,
       points: pdfPoints,
       color: S.an.color,
@@ -2251,7 +2272,7 @@ function onDrawEnd(e) {
     const left = Math.min(p.x, start.x), top = Math.min(p.y, start.y);
     const w = dx, h = dy;
     if (S.an.tool === 'rect') {
-      S.annots[S.an.pid].push({
+      S.annots[pid].push({
         id: uid(), type: 'rect',
         x: left / sc, y: (cvH - top - h) / sc,
         w: w / sc, h: h / sc,
@@ -2261,7 +2282,7 @@ function onDrawEnd(e) {
         strokeWidth: S.an.strokeWidth
       });
     } else {
-      S.annots[S.an.pid].push({
+      S.annots[pid].push({
         id: uid(), type: 'ellipse',
         cx: (left + w / 2) / sc,
         cy: (cvH - (top + h / 2)) / sc,
@@ -2755,7 +2776,7 @@ async function doExport(toFolder, userPassword) {
           ctx.stroke();
           ctx.restore();
         }
-        const pngBytes = await canvasToPngBytes(tmp);
+        const pngBytes = canvasToPngBytes(tmp);
         const pngImg = await doc.embedPng(pngBytes);
         outPage.drawImage(pngImg, { x: 0, y: 0, width: pgW, height: pgH });
       }
@@ -2801,7 +2822,7 @@ async function doExport(toFolder, userPassword) {
           ctx.fillText(a.text, a.x, pgH - a.y);
           ctx.restore();
         }
-        const pngBytes = await canvasToPngBytes(tmp);
+        const pngBytes = canvasToPngBytes(tmp);
         const pngImg = await doc.embedPng(pngBytes);
         outPage.drawImage(pngImg, { x: 0, y: 0, width: pgW, height: pgH });
       }
@@ -2829,7 +2850,7 @@ async function doExport(toFolder, userPassword) {
           ctxTb.fillText(tb.text, tb.x, pgH - tb.y);
           ctxTb.restore();
         }
-        const pngTb = await canvasToPngBytes(tmpTb);
+        const pngTb = canvasToPngBytes(tmpTb);
         const imgTb = await doc.embedPng(pngTb);
         outPage.drawImage(imgTb, { x: 0, y: 0, width: pgW, height: pgH });
       }
@@ -2883,9 +2904,12 @@ async function doExport(toFolder, userPassword) {
 }
 
 function canvasToPngBytes(canvas) {
-  return new Promise(resolve => {
-    canvas.toBlob(blob => blob.arrayBuffer().then(buf => resolve(new Uint8Array(buf))), 'image/png');
-  });
+  const dataUrl = canvas.toDataURL('image/png');
+  const base64 = dataUrl.split(',')[1];
+  const bin = atob(base64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
 
 async function saveOutput(bytes, filename, toFolder) {

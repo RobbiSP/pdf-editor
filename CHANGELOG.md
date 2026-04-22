@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## [2026-04-22]
+
+### 修復
+
+#### Bug 1：簽字筆／螢光筆畫線，輸出 PDF 不包含標注
+
+- **根因**：`canvasToPngBytes` 使用 `canvas.toBlob`（非同步），在本機 `file://` 開啟或特定瀏覽器安全限制下可能靜默失敗，導致 PNG 無法產生，進而跳過 `doc.embedPng`。
+- **解決**：改用同步的 `canvas.toDataURL('image/png')`，搭配 `atob` 直接取得位元組，不依賴非同步回呼。
+
+#### Bug 1（補充）：切頁時在途的筆跡被存到錯誤頁面或遺失
+
+- **根因**：`onDrawEnd`（掛在全域 `document`）在使用者切換模式或切頁後仍可能觸發，此時 `S.an.pid` 已指向新頁面，導致筆跡被寫入錯誤頁，或在非標示模式下被捨棄時資料遺失。
+- **解決**：`onDrawStart` 記錄 `S.an.drawPid`（繪圖開始時的 pid）；`onDrawEnd` 改用 `drawPid` 寫入 `S.annots`，並在模式非 `annotate` 或 pid 無效時直接捨棄。
+
+#### Bug 2：在第一頁用螢光筆畫線，切換到第二頁輸入文字，第一頁標注消失
+
+- **根因一**：`renderAnnotatePage` / `renderTextPage` 為 async 函式，快速切頁時舊的 render 回呼在新頁面渲染後才完成，以舊的 pid 呼叫 `renderAnnOverlay`，覆蓋正確的標注顯示。
+- **解決**：每次 `await` 後加入 stale 檢查（`if (S.an.pidx !== idx) return`），確保過時的 render 不會污染當前畫面。
+- **根因二**：`setMode` 切換標示↔文字模式時，各自維護獨立的 `pidx`，使用者在標示模式第 1 頁畫線後切到文字模式，再切回標示模式時，頁碼停留在舊的 `S.an.pidx`，造成使用者看到的頁面不一致，誤以為標注消失。
+- **解決**：`setMode` 切換時同步 `S.an.pidx` ↔ `S.tx.pidx`，確保兩種模式始終顯示同一頁面。
+
 ## [2026-04-17]
 
 ### 規劃中
