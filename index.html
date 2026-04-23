@@ -300,7 +300,7 @@ body.theme-navy .sb-rot:hover,body.theme-navy .sb-del:hover{color:rgba(255,255,2
     <span id="zoom-val" style="font-size:13px;min-width:42px;text-align:center">150%</span>
     <button class="btn" style="padding:4px 10px;font-size:15px;line-height:1" onclick="stepZoom(+10)">＋</button>
   </div>
-  <button class="btn primary" id="btn-out" onclick="doDownloadPDF()" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下載</button>
+  <button class="btn primary" id="btn-out" onclick="doExport(false)" disabled><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>下載</button>
   <span id="fs-badge"></span>
 </div>
 
@@ -2799,158 +2799,6 @@ async function confirmEncrypt() {
   closeEncryptModal();
   await doExport(false, pwd);
 }
-async function doDownloadPDF() {
-  if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
-  showLoading('產生 PDF 中…');
-  try {
-    const pdfBytes = await buildPdfBytes();
-    hideLoading();
-    if (S.hasFS && window.showSaveFilePicker) {
-      try {
-        const fh = await window.showSaveFilePicker({
-          suggestedName: 'output.pdf',
-          types: [{ description: 'PDF 文件', accept: { 'application/pdf': ['.pdf'] } }]
-        });
-        const w = await fh.createWritable();
-        await w.write(pdfBytes);
-        await w.close();
-        toast('已儲存');
-        return;
-      } catch (e) {
-        if (e.name === 'AbortError') return;
-      }
-    }
-    downloadBytes(pdfBytes, 'output.pdf');
-    toast('已下載 output.pdf');
-  } catch (e) { hideLoading(); toast('下載失敗：' + e.message); console.error(e); }
-}
-
-async function buildPdfBytes() {
-  const doc = await PDFLib.PDFDocument.create();
-  let _font = null;
-  async function getFont() { if (!_font) _font = await doc.embedFont(PDFLib.StandardFonts.Helvetica); return _font; }
-
-  for (const pg of S.pages) {
-    const file = S.files.find(f => f.id === pg.fid);
-    const [cp] = await doc.copyPages(file.pld, [pg.pidx]);
-    if (pg.rot) cp.setRotation(PDFLib.degrees(pg.rot));
-    doc.addPage(cp);
-    const outPage = doc.getPage(doc.getPageCount() - 1);
-    const pgH = outPage.getHeight();
-    const pgW = outPage.getWidth();
-
-    const annots = S.annots[pg.id] || [];
-
-    const penAnnots = annots.filter(a => a.type === 'pen' || a.type === 'marker');
-    if (penAnnots.length) {
-      const DPI = 2;
-      const tmp = document.createElement('canvas');
-      tmp.width = Math.round(pgW * DPI); tmp.height = Math.round(pgH * DPI);
-      const ctx = tmp.getContext('2d');
-      ctx.scale(DPI, DPI);
-      for (const a of penAnnots) {
-        const pts = a.points;
-        if (!pts || pts.length < 2) continue;
-        ctx.save();
-        ctx.beginPath();
-        ctx.moveTo(pts[0].x, pgH - pts[0].y);
-        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pgH - pts[i].y);
-        ctx.strokeStyle = hexToRgba(a.color, (a.strokeOpacity ?? 100) / 100);
-        ctx.lineWidth = a.width;
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-        ctx.stroke();
-        ctx.restore();
-      }
-      const pngBytes = canvasToPngBytes(tmp);
-      const pngImg = await doc.embedPng(pngBytes);
-      outPage.drawImage(pngImg, { x: 0, y: 0, width: pgW, height: pgH });
-    }
-
-    for (const a of annots.filter(a => a.type === 'rect')) {
-      const rgb = hexToPdfRgb(a.color);
-      const sOp = (a.strokeOpacity ?? 100) / 100;
-      const fOp = (a.fillOpacity ?? 0) / 100;
-      outPage.drawRectangle({
-        x: a.x, y: a.y, width: a.w, height: a.h,
-        ...(fOp > 0 ? { color: rgb, opacity: fOp } : {}),
-        ...(sOp > 0 ? { borderColor: rgb, borderOpacity: sOp, borderWidth: a.strokeWidth ?? 2 } : {}),
-      });
-    }
-
-    for (const a of annots.filter(a => a.type === 'ellipse')) {
-      const rgb = hexToPdfRgb(a.color);
-      const sOp = (a.strokeOpacity ?? 100) / 100;
-      const fOp = (a.fillOpacity ?? 0) / 100;
-      outPage.drawEllipse({
-        x: a.cx, y: a.cy, xScale: a.rx, yScale: a.ry,
-        ...(fOp > 0 ? { color: rgb, opacity: fOp } : {}),
-        ...(sOp > 0 ? { borderColor: rgb, borderOpacity: sOp, borderWidth: a.strokeWidth ?? 2 } : {}),
-      });
-    }
-
-    const textAnnots = annots.filter(a => a.type === 'text');
-    if (textAnnots.length) {
-      const DPI = 2;
-      const tmp = document.createElement('canvas');
-      tmp.width = Math.round(pgW * DPI); tmp.height = Math.round(pgH * DPI);
-      const ctx = tmp.getContext('2d');
-      ctx.scale(DPI, DPI);
-      for (const a of textAnnots) {
-        ctx.save();
-        ctx.fillStyle = a.color;
-        ctx.font = `${a.size}px sans-serif`;
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(a.text, a.x, pgH - a.y);
-        ctx.restore();
-      }
-      const pngText = canvasToPngBytes(tmp);
-      const imgText = await doc.embedPng(pngText);
-      outPage.drawImage(imgText, { x: 0, y: 0, width: pgW, height: pgH });
-    }
-
-    const tbs = S.textBoxes[pg.id] || [];
-    if (tbs.length) {
-      const DPI = 2;
-      const tmpTb = document.createElement('canvas');
-      tmpTb.width = Math.round(pgW * DPI); tmpTb.height = Math.round(pgH * DPI);
-      const ctxTb = tmpTb.getContext('2d');
-      ctxTb.scale(DPI, DPI);
-      for (const tb of tbs) {
-        ctxTb.save();
-        if (tb.hasBg) {
-          ctxTb.fillStyle = tb.bgColor;
-          ctxTb.font = `${tb.size}px sans-serif`;
-          const textW = ctxTb.measureText(tb.text).width;
-          ctxTb.fillRect(tb.x, pgH - tb.y - tb.size * 1.5, textW + 8, tb.size * 1.5);
-        }
-        ctxTb.fillStyle = tb.color;
-        ctxTb.font = `${tb.size}px sans-serif`;
-        ctxTb.textBaseline = 'bottom';
-        ctxTb.fillText(tb.text, tb.x, pgH - tb.y);
-        ctxTb.restore();
-      }
-      const pngTb = canvasToPngBytes(tmpTb);
-      const imgTb = await doc.embedPng(pngTb);
-      outPage.drawImage(imgTb, { x: 0, y: 0, width: pgW, height: pgH });
-    }
-
-    const form = doc.getForm();
-    for (const f of (S.fields[pg.id] || [])) {
-      try {
-        const tf = form.createTextField(f.code);
-        tf.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
-      } catch (e) {
-        try {
-          const tf2 = form.createTextField(f.code + '_' + f.id.slice(-3));
-          tf2.addToPage(outPage, { x: f.x, y: f.y, width: f.w, height: f.h, borderWidth: 1 });
-        } catch (_) {}
-      }
-    }
-  }
-
-  return await doc.save();
-}
-
 async function doExport(toFolder, userPassword) {
   if (!S.pages.length) { toast('尚未載入任何 PDF'); return; }
   showLoading('產生 PDF 中…');
@@ -3085,36 +2933,44 @@ async function doExport(toFolder, userPassword) {
       }
     }
 
-    // 輸出為 PDF 或加密 ZIP
     const pdfBytes = await doc.save();
 
-    // 輸出為 ZIP（內含 PDF）
-    try {
-      const zip = new JSZip();
-      zip.file('output.pdf', new Blob([pdfBytes], { type: 'application/pdf' }));
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      const zipArrayBuffer = await zipBlob.arrayBuffer();
-      const zipBytes = new Uint8Array(zipArrayBuffer);
-
-      if (userPassword) {
-        // 若需要密碼保護，改用 decrypt.html 工具
-        // 先儲存普通 ZIP 供解密工具使用
-
-        // 用密碼加密 ZIP（存為 .encrypted 檔案供解密工具使用）
+    if (!userPassword) {
+      // 直接輸出 PDF，優先使用原生存檔對話框（可選擇檔名與位置）
+      if (S.hasFS && window.showSaveFilePicker) {
+        try {
+          const fh = await window.showSaveFilePicker({
+            suggestedName: 'output.pdf',
+            types: [{ description: 'PDF 文件', accept: { 'application/pdf': ['.pdf'] } }]
+          });
+          const w = await fh.createWritable();
+          await w.write(pdfBytes); await w.close();
+          hideLoading(); toast('已儲存'); return;
+        } catch (e) {
+          if (e.name === 'AbortError') { hideLoading(); return; }
+        }
+      }
+      hideLoading();
+      downloadBytes(pdfBytes, 'output.pdf');
+      toast('已下載 output.pdf');
+    } else {
+      // 加密 ZIP（待後端加密功能就緒後開放）
+      try {
+        const zip = new JSZip();
+        zip.file('output.pdf', new Blob([pdfBytes], { type: 'application/pdf' }));
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipArrayBuffer = await zipBlob.arrayBuffer();
+        const zipBytes = new Uint8Array(zipArrayBuffer);
         const zipHex = Array.from(zipBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         const encryptedZip = CryptoJS.AES.encrypt(zipHex, userPassword).toString();
         const encBytes = new TextEncoder().encode(encryptedZip);
-
         await saveOutput(encBytes, 'output.zip.encrypted', toFolder);
         toast('✅ 已建立密碼保護 ZIP\n用 decrypt.html 解密');
-      } else {
-        await saveOutput(zipBytes, 'output.zip', toFolder);
+      } catch (err) {
+        console.error('ZIP 建立失敗:', err);
+        hideLoading(); toast('⚠️ 錯誤：' + err.message);
+        await saveOutput(pdfBytes, 'output.pdf', toFolder);
       }
-    }
-    catch (err) {
-      console.error('ZIP 建立失敗:', err);
-      hideLoading(); toast('⚠️ 錯誤：' + err.message);
-      await saveOutput(pdfBytes, 'output.pdf', toFolder);
     }
   } catch (e) { hideLoading(); toast('輸出失敗：' + e.message); console.error(e); }
 }
