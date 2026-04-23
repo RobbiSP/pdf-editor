@@ -4,6 +4,11 @@
 
 ### 修復
 
+#### Bug：下載按鈕觸發「Expected instance of e, but got instance of undefined」錯誤
+
+- **根因**：上版新增 `buildPdfBytes()` 時將 `doExport` 內的 PDF 生成邏輯手動複製貼上，引入隱性 bug（pdf-lib 型別斷言失敗）。
+- **解決方案**：刪除 `buildPdfBytes` 和 `doDownloadPDF`，改為直接修改原版已確認可運作的 `doExport`：無密碼時以 `showSaveFilePicker` 存為 PDF；有密碼時保留加密 ZIP 路徑。消除了程式碼重複，並恢復下載功能。
+
 #### Bug：畫矩形／橢圓時，拖曳過程看不到預覽線條
 
 - **根因**：`onDrawMove` 在 `rect`／`ellipse` 工具時未更新 `currentPoints`，導致 `renderAnnOverlay` 中 `cur === drawStart`，寬高為零，什麼都看不到。
